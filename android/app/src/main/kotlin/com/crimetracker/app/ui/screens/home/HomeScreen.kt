@@ -6,6 +6,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.crimetracker.app.ui.screens.auth.AuthViewModel
 import com.crimetracker.app.ui.screens.home.tabs.FeedTab
 import com.crimetracker.app.ui.screens.home.tabs.GroupsTab
 import com.crimetracker.app.ui.screens.home.tabs.ReportsTab
@@ -17,7 +19,8 @@ fun HomeScreen(
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToCreatePost: (String) -> Unit,
     onNavigateToProfile: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
@@ -48,6 +51,7 @@ fun HomeScreen(
                             text = { Text("Sair") },
                             onClick = {
                                 showMenu = false
+                                authViewModel.logout()
                                 onLogout()
                             },
                             leadingIcon = {

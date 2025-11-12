@@ -2,10 +2,8 @@ package com.crimetracker.app.ui.screens.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.crimetracker.app.data.local.UserPreferences
-import com.crimetracker.app.data.model.LoginRequest
-import com.crimetracker.app.data.model.RegisterRequest
-import com.crimetracker.app.data.remote.ApiService
+import com.crimetracker.app.data.repository.AuthRepository
+import com.crimetracker.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,77 +14,87 @@ import javax.inject.Inject
 data class AuthUiState(
     val isLoading: Boolean = false,
     val isLoggedIn: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val successMessage: String? = null
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val apiService: ApiService,
-    private val userPreferences: UserPreferences
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     fun login(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Preencha todos os campos")
+            return
+        }
+
         viewModelScope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                
-                val response = apiService.login(LoginRequest(email, password))
-                
-                if (response.isSuccessful && response.body() != null) {
-                    val authResponse = response.body()!!
-                    userPreferences.saveAuthData(
-                        token = authResponse.token,
-                        userId = authResponse.userId,
-                        username = authResponse.username,
-                        email = authResponse.email
-                    )
-                    _uiState.value = _uiState.value.copy(isLoading = false, isLoggedIn = true)
-                } else {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            when (val result = authRepository.login(email, password)) {
+                is Resource.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Email ou senha incorretos"
+                        isLoggedIn = true,
+                        successMessage = "Login realizado com sucesso!"
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Erro ao fazer login: ${e.message}"
-                )
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
+                }
+                else -> {}
             }
         }
     }
 
     fun register(username: String, email: String, password: String) {
+        if (username.isBlank() || email.isBlank() || password.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Preencha todos os campos")
+            return
+        }
+
+        if (password.length < 8) {
+            _uiState.value = _uiState.value.copy(error = "A senha deve ter pelo menos 8 caracteres")
+            return
+        }
+
         viewModelScope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                
-                val response = apiService.register(RegisterRequest(email, password, username))
-                
-                if (response.isSuccessful && response.body() != null) {
-                    val authResponse = response.body()!!
-                    userPreferences.saveAuthData(
-                        token = authResponse.token,
-                        userId = authResponse.userId,
-                        username = authResponse.username,
-                        email = authResponse.email
-                    )
-                    _uiState.value = _uiState.value.copy(isLoading = false, isLoggedIn = true)
-                } else {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            when (val result = authRepository.register(username, email, password)) {
+                is Resource.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Erro ao criar conta. Verifique os dados."
+                        isLoggedIn = true,
+                        successMessage = "Cadastro realizado com sucesso!"
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Erro ao criar conta: ${e.message}"
-                )
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
+                }
+                else -> {}
             }
+        }
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            authRepository.logout()
+            _uiState.value = AuthUiState()
         }
     }
 }

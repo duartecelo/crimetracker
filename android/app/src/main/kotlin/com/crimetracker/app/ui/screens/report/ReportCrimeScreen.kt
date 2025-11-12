@@ -1,23 +1,71 @@
 package com.crimetracker.app.ui.screens.report
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.crimetracker.app.util.LocationHelper
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportCrimeScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: ReportViewModel = hiltViewModel()
 ) {
     var tipo by remember { mutableStateOf("Assalto") }
     var descricao by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val crimeTypes = listOf("Assalto", "Furto", "Agressão", "Vandalismo", "Roubo", "Outro")
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            scope.launch {
+                val location = LocationHelper.getCurrentLocation(context)
+                if (location != null) {
+                    viewModel.createReport(tipo, descricao, location.first, location.second)
+                }
+            }
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar("Permissão de localização negada. Usando localização padrão.")
+                val location = Pair(-23.5505, -46.6333) // São Paulo
+                viewModel.createReport(tipo, descricao, location.first, location.second)
+            }
+        }
+    }
+
+    // Mostrar mensagens
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.successMessage) {
+        uiState.successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearSuccess()
+            onNavigateBack()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -29,7 +77,8 @@ fun ReportCrimeScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -90,19 +139,36 @@ fun ReportCrimeScreen(
                     .fillMaxWidth()
                     .height(200.dp),
                 placeholder = { Text("Descreva o que aconteceu...") },
-                supportingText = { Text("${descricao.length}/500") }
+                supportingText = { Text("${descricao.length}/500") },
+                enabled = !uiState.isLoading
             )
             
             Spacer(modifier = Modifier.height(24.dp))
             
             Button(
                 onClick = {
-                    // TODO: Implementar submit
-                    onNavigateBack()
+                    if (LocationHelper.hasLocationPermission(context)) {
+                        scope.launch {
+                            val location = LocationHelper.getCurrentLocation(context)
+                            if (location != null) {
+                                viewModel.createReport(tipo, descricao, location.first, location.second)
+                            }
+                        }
+                    } else {
+                        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading && descricao.isNotBlank()
             ) {
-                Text("Reportar")
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Reportar")
+                }
             }
         }
     }

@@ -1,7 +1,9 @@
 package com.crimetracker.app.di
 
 import android.content.Context
+import androidx.room.Room
 import com.crimetracker.app.BuildConfig
+import com.crimetracker.app.data.local.CrimeTrackerDatabase
 import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.data.remote.ApiService
 import dagger.Module
@@ -84,4 +86,26 @@ object NetworkModule {
     fun provideApiService(retrofit: Retrofit): ApiService {
         return retrofit.create(ApiService::class.java)
     }
+    
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): CrimeTrackerDatabase {
+        return Room.databaseBuilder(
+            context,
+            CrimeTrackerDatabase::class.java,
+            "crimetracker_database"
+        ).build()
+    }
+    
+    @Provides
+    fun provideUserDao(database: CrimeTrackerDatabase) = database.userDao()
+    
+    @Provides
+    fun provideCrimeReportDao(database: CrimeTrackerDatabase) = database.crimeReportDao()
+    
+    @Provides
+    fun provideGroupDao(database: CrimeTrackerDatabase) = database.groupDao()
+    
+    @Provides
+    fun providePostDao(database: CrimeTrackerDatabase) = database.postDao()
 }
