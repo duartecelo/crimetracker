@@ -68,7 +68,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/groups', groupsRoutes);
-app.use('/api/feed', feedRoutes);
+app.use('/api', feedRoutes);
 
 // Middleware de tratamento de erros
 app.use(notFoundHandler);
@@ -97,14 +97,27 @@ async function startServer() {
       console.log('');
       console.log('📡 Endpoints disponíveis:');
       console.log(`   GET  /health`);
+      console.log(``);
+      console.log(`   🔐 AUTH-001:`);
       console.log(`   POST /api/auth/register`);
       console.log(`   POST /api/auth/login`);
       console.log(`   GET  /api/auth/profile`);
+      console.log(``);
+      console.log(`   🚨 CRIME-001:`);
       console.log(`   POST /api/reports`);
-      console.log(`   GET  /api/reports`);
+      console.log(`   GET  /api/reports/nearby`);
+      console.log(`   GET  /api/reports/:id`);
+      console.log(``);
+      console.log(`   👥 GROUP-001:`);
       console.log(`   POST /api/groups`);
       console.log(`   GET  /api/groups`);
-      console.log(`   POST /api/feed`);
+      console.log(`   POST /api/groups/:id/join`);
+      console.log(`   POST /api/groups/:id/leave`);
+      console.log(``);
+      console.log(`   📰 FEED-001:`);
+      console.log(`   POST /api/groups/:group_id/posts`);
+      console.log(`   GET  /api/groups/:group_id/posts`);
+      console.log(`   DELETE /api/posts/:id`);
       console.log(`   GET  /api/feed`);
       console.log('');
       console.log('✅ Pronto para receber requisições!');
