@@ -1,129 +1,326 @@
+/**
+ * Rotas de Denúncias - CRIME-001
+ */
+
 const express = require('express');
-const { body, validationResult } = require('express-validator');
-const db = require('../database/db');
-const { authenticateToken } = require('./auth');
+const { body, query, param, validationResult } = require('express-validator');
+const reportService = require('../services/reportService');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Middleware de validação
+/**
+ * Middleware de validação
+ */
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({
+      success: false,
+      message: 'Erro de validação',
+      errors: errors.array().map(err => ({
+        field: err.path,
+        message: err.msg
+      }))
+    });
   }
   next();
 };
 
-// Criar denúncia
-router.post('/',
+/**
+ * POST /api/reports
+ * Cria denúncia (tipo, descrição, lat/lon)
+ * 
+ * Headers: Authorization: Bearer <token>
+ * Body: { tipo, descricao, latitude, longitude }
+ * Response: { success: true, data: {...} }
+ */
+router.post(
+  '/',
   authenticateToken,
   [
-    body('title').trim().notEmpty().withMessage('Título é obrigatório'),
-    body('description').trim().notEmpty().withMessage('Descrição é obrigatória'),
-    body('category').trim().notEmpty().withMessage('Categoria é obrigatória'),
-    body('latitude').isFloat().withMessage('Latitude inválida'),
-    body('longitude').isFloat().withMessage('Longitude inválida')
+    body('tipo')
+      .trim()
+      .notEmpty().withMessage('Tipo é obrigatório')
+      .isIn(['Assalto', 'Furto', 'Agressão', 'Vandalismo', 'Roubo', 'Outro'])
+      .withMessage('Tipo inválido. Use: Assalto, Furto, Agressão, Vandalismo, Roubo, Outro'),
+    
+    body('descricao')
+      .trim()
+      .notEmpty().withMessage('Descrição é obrigatória')
+      .isLength({ max: 500 }).withMessage('Descrição deve ter no máximo 500 caracteres'),
+    
+    body('latitude')
+      .isFloat({ min: -90, max: 90 }).withMessage('Latitude deve estar entre -90 e 90'),
+    
+    body('longitude')
+      .isFloat({ min: -180, max: 180 }).withMessage('Longitude deve estar entre -180 e 180'),
+    
+    validate
   ],
-  validate,
-  (req, res) => {
+  async (req, res) => {
     try {
-      const { title, description, category, latitude, longitude, address, image_path } = req.body;
-      const userId = req.user.userId;
+      const userId = req.user.user_id;
+      const { tipo, descricao, latitude, longitude } = req.body;
 
-      const stmt = db.prepare(`
-        INSERT INTO reports (user_id, title, description, category, latitude, longitude, address, image_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      const result = stmt.run(userId, title, description, category, latitude, longitude, address || null, image_path || null);
+      const report = await reportService.createReport(
+        userId, 
+        tipo, 
+        descricao, 
+        parseFloat(latitude), 
+        parseFloat(longitude)
+      );
 
       res.status(201).json({
-        message: 'Denúncia criada com sucesso',
-        reportId: result.lastInsertRowid
+        success: true,
+        data: report
       });
+
     } catch (error) {
-      console.error('Erro ao criar denúncia:', error);
-      res.status(500).json({ error: 'Erro ao criar denúncia' });
+      console.error('❌ Erro ao criar denúncia:', error.message);
+
+      const statusCode = error.message.includes('inválido') || 
+                         error.message.includes('obrigatório') ||
+                         error.message.includes('máximo') ? 400 : 500;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
     }
   }
 );
 
-// Listar denúncias (com filtros opcionais)
-router.get('/', authenticateToken, (req, res) => {
-  try {
-    const { category, status, latitude, longitude, radius } = req.query;
-    let query = `
-      SELECT r.*, u.username, u.full_name
-      FROM reports r
-      JOIN users u ON r.user_id = u.id
-      WHERE 1=1
-    `;
-    const params = [];
+/**
+ * GET /api/reports/nearby
+ * Retorna denúncias nos últimos 30 dias, dentro do raio informado
+ * 
+ * Query: ?latitude=X&longitude=Y&radius_km=5
+ * Response: { success: true, data: [...] }
+ */
+router.get(
+  '/nearby',
+  authenticateToken,
+  [
+    query('latitude')
+      .notEmpty().withMessage('Latitude é obrigatória')
+      .isFloat({ min: -90, max: 90 }).withMessage('Latitude deve estar entre -90 e 90'),
+    
+    query('longitude')
+      .notEmpty().withMessage('Longitude é obrigatória')
+      .isFloat({ min: -180, max: 180 }).withMessage('Longitude deve estar entre -180 e 180'),
+    
+    query('radius_km')
+      .optional()
+      .isFloat({ min: 0.1, max: 100 }).withMessage('Raio deve estar entre 0.1 e 100 km'),
+    
+    validate
+  ],
+  async (req, res) => {
+    try {
+      const latitude = parseFloat(req.query.latitude);
+      const longitude = parseFloat(req.query.longitude);
+      const radiusKm = req.query.radius_km ? parseFloat(req.query.radius_km) : 5;
 
-    if (category) {
-      query += ' AND r.category = ?';
-      params.push(category);
+      const reports = await reportService.getNearbyReports(latitude, longitude, radiusKm);
+
+      res.json({
+        success: true,
+        data: reports,
+        count: reports.length,
+        filters: {
+          latitude,
+          longitude,
+          radius_km: radiusKm,
+          last_days: 30
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar denúncias próximas:', error.message);
+
+      const statusCode = error.message.includes('inválido') ? 400 : 500;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
     }
-
-    if (status) {
-      query += ' AND r.status = ?';
-      params.push(status);
-    }
-
-    query += ' ORDER BY r.created_at DESC LIMIT 100';
-
-    const reports = db.prepare(query).all(...params);
-    res.json(reports);
-  } catch (error) {
-    console.error('Erro ao listar denúncias:', error);
-    res.status(500).json({ error: 'Erro ao listar denúncias' });
   }
-});
+);
 
-// Obter denúncia por ID
-router.get('/:id', authenticateToken, (req, res) => {
-  try {
-    const report = db.prepare(`
-      SELECT r.*, u.username, u.full_name
-      FROM reports r
-      JOIN users u ON r.user_id = u.id
-      WHERE r.id = ?
-    `).get(req.params.id);
+/**
+ * GET /api/reports/:id
+ * Retorna detalhes da denúncia
+ * 
+ * Headers: Authorization: Bearer <token>
+ * Response: { success: true, data: {...} }
+ */
+router.get(
+  '/:id',
+  authenticateToken,
+  [
+    param('id')
+      .notEmpty().withMessage('ID da denúncia é obrigatório')
+      .isUUID().withMessage('ID da denúncia inválido'),
+    
+    validate
+  ],
+  async (req, res) => {
+    try {
+      const reportId = req.params.id;
 
-    if (!report) {
-      return res.status(404).json({ error: 'Denúncia não encontrada' });
+      const report = await reportService.getReportById(reportId);
+
+      res.json({
+        success: true,
+        data: report
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar denúncia:', error.message);
+
+      const statusCode = error.message.includes('não encontrada') ? 404 : 500;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
     }
-
-    res.json(report);
-  } catch (error) {
-    console.error('Erro ao buscar denúncia:', error);
-    res.status(500).json({ error: 'Erro ao buscar denúncia' });
   }
-});
+);
 
-// Atualizar status da denúncia
-router.patch('/:id/status', authenticateToken, (req, res) => {
-  try {
-    const { status } = req.body;
-    const reportId = req.params.id;
+/**
+ * GET /api/reports/user/me
+ * Retorna denúncias do usuário autenticado
+ * 
+ * Headers: Authorization: Bearer <token>
+ * Response: { success: true, data: [...] }
+ */
+router.get(
+  '/user/me',
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.user_id;
 
-    // Verificar se o usuário é o dono da denúncia
-    const report = db.prepare('SELECT user_id FROM reports WHERE id = ?').get(reportId);
-    if (!report) {
-      return res.status(404).json({ error: 'Denúncia não encontrada' });
+      const reports = await reportService.getUserReports(userId);
+
+      res.json({
+        success: true,
+        data: reports,
+        count: reports.length
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar denúncias do usuário:', error.message);
+
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
     }
-
-    if (report.user_id !== req.user.userId) {
-      return res.status(403).json({ error: 'Sem permissão para atualizar esta denúncia' });
-    }
-
-    db.prepare('UPDATE reports SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, reportId);
-
-    res.json({ message: 'Status atualizado com sucesso' });
-  } catch (error) {
-    console.error('Erro ao atualizar status:', error);
-    res.status(500).json({ error: 'Erro ao atualizar status' });
   }
-});
+);
+
+/**
+ * PUT /api/reports/:id
+ * Atualiza denúncia (somente o dono)
+ * 
+ * Headers: Authorization: Bearer <token>
+ * Body: { tipo?, descricao? }
+ * Response: { success: true, data: {...} }
+ */
+router.put(
+  '/:id',
+  authenticateToken,
+  [
+    param('id')
+      .notEmpty().withMessage('ID da denúncia é obrigatório')
+      .isUUID().withMessage('ID da denúncia inválido'),
+    
+    body('tipo')
+      .optional()
+      .trim()
+      .isIn(['Assalto', 'Furto', 'Agressão', 'Vandalismo', 'Roubo', 'Outro'])
+      .withMessage('Tipo inválido'),
+    
+    body('descricao')
+      .optional()
+      .trim()
+      .isLength({ max: 500 }).withMessage('Descrição deve ter no máximo 500 caracteres'),
+    
+    validate
+  ],
+  async (req, res) => {
+    try {
+      const reportId = req.params.id;
+      const userId = req.user.user_id;
+      const updates = req.body;
+
+      const report = await reportService.updateReport(reportId, userId, updates);
+
+      res.json({
+        success: true,
+        data: report
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao atualizar denúncia:', error.message);
+
+      const statusCode = error.message.includes('não encontrada') || 
+                         error.message.includes('permissão') ? 404 : 
+                         error.message.includes('inválido') ? 400 : 500;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/reports/:id
+ * Deleta denúncia (somente o dono)
+ * 
+ * Headers: Authorization: Bearer <token>
+ * Response: { success: true, message: "..." }
+ */
+router.delete(
+  '/:id',
+  authenticateToken,
+  [
+    param('id')
+      .notEmpty().withMessage('ID da denúncia é obrigatório')
+      .isUUID().withMessage('ID da denúncia inválido'),
+    
+    validate
+  ],
+  async (req, res) => {
+    try {
+      const reportId = req.params.id;
+      const userId = req.user.user_id;
+
+      await reportService.deleteReport(reportId, userId);
+
+      res.json({
+        success: true,
+        message: 'Denúncia deletada com sucesso'
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao deletar denúncia:', error.message);
+
+      const statusCode = error.message.includes('não encontrada') || 
+                         error.message.includes('permissão') ? 404 : 500;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+);
 
 module.exports = router;
-

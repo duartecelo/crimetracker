@@ -1,145 +1,158 @@
+/**
+ * Rotas de Autenticação - AUTH-001
+ */
+
 const express = require('express');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const db = require('../database/db');
+const authService = require('../services/authService');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const JWT_SECRET = 'crimetracker-secret-key-change-in-production';
 
-// Middleware de validação de erros
+/**
+ * Middleware de validação
+ */
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({
+      success: false,
+      message: 'Erro de validação',
+      errors: errors.array().map(err => ({
+        field: err.path,
+        message: err.msg
+      }))
+    });
   }
   next();
 };
 
-// Registro de usuário
-router.post('/register',
+/**
+ * POST /api/auth/register
+ * Cria usuário com email, senha (hash bcryptjs), username
+ * 
+ * Body: { email, password, username }
+ * Response: { success, user_id, username, email, token }
+ */
+router.post(
+  '/register',
   [
-    body('username').trim().isLength({ min: 3 }).withMessage('Username deve ter no mínimo 3 caracteres'),
-    body('email').isEmail().withMessage('Email inválido'),
-    body('password').isLength({ min: 6 }).withMessage('Senha deve ter no mínimo 6 caracteres'),
-    body('full_name').trim().notEmpty().withMessage('Nome completo é obrigatório')
+    body('email')
+      .trim()
+      .notEmpty().withMessage('Email é obrigatório')
+      .isEmail().withMessage('Email inválido')
+      .normalizeEmail(),
+    
+    body('password')
+      .notEmpty().withMessage('Senha é obrigatória')
+      .isLength({ min: 8 }).withMessage('Senha deve ter no mínimo 8 caracteres'),
+    
+    body('username')
+      .trim()
+      .notEmpty().withMessage('Nome de usuário é obrigatório')
+      .isLength({ min: 3, max: 30 }).withMessage('Nome de usuário deve ter entre 3 e 30 caracteres'),
+    
+    validate
   ],
-  validate,
   async (req, res) => {
     try {
-      const { username, email, password, full_name, phone, address, latitude, longitude } = req.body;
+      const { email, password, username } = req.body;
 
-      // Verificar se usuário já existe
-      const existingUser = db.prepare('SELECT id FROM users WHERE username = ? OR email = ?').get(username, email);
-      if (existingUser) {
-        return res.status(409).json({ error: 'Usuário ou email já existe' });
-      }
+      const result = await authService.registerUser(email, password, username);
 
-      // Hash da senha
-      const password_hash = await bcrypt.hash(password, 10);
+      res.status(201).json(result);
 
-      // Inserir usuário
-      const stmt = db.prepare(`
-        INSERT INTO users (username, email, password_hash, full_name, phone, address, latitude, longitude)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      const result = stmt.run(username, email, password_hash, full_name, phone || null, address || null, latitude || null, longitude || null);
-
-      // Gerar token JWT
-      const token = jwt.sign({ userId: result.lastInsertRowid, username }, JWT_SECRET, { expiresIn: '7d' });
-
-      res.status(201).json({
-        message: 'Usuário registrado com sucesso',
-        token,
-        user: {
-          id: result.lastInsertRowid,
-          username,
-          email,
-          full_name
-        }
-      });
     } catch (error) {
-      console.error('Erro no registro:', error);
-      res.status(500).json({ error: 'Erro ao registrar usuário' });
+      console.error('❌ Erro no registro:', error.message);
+
+      const statusCode = error.message.includes('já cadastrado') ? 409 : 
+                         error.message.includes('inválido') ? 400 : 500;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
     }
   }
 );
 
-// Login
-router.post('/login',
+/**
+ * POST /api/auth/login
+ * Retorna { success, user_id, username, email, token }
+ * 
+ * Body: { email, password }
+ * Response: { success, user_id, username, email, token }
+ */
+router.post(
+  '/login',
   [
-    body('username').trim().notEmpty().withMessage('Username é obrigatório'),
-    body('password').notEmpty().withMessage('Senha é obrigatória')
+    body('email')
+      .trim()
+      .notEmpty().withMessage('Email é obrigatório')
+      .isEmail().withMessage('Email inválido')
+      .normalizeEmail(),
+    
+    body('password')
+      .notEmpty().withMessage('Senha é obrigatória'),
+    
+    validate
   ],
-  validate,
   async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { email, password } = req.body;
 
-      // Buscar usuário
-      const user = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(username, username);
-      if (!user) {
-        return res.status(401).json({ error: 'Credenciais inválidas' });
-      }
+      const result = await authService.loginUser(email, password);
 
-      // Verificar senha
-      const validPassword = await bcrypt.compare(password, user.password_hash);
-      if (!validPassword) {
-        return res.status(401).json({ error: 'Credenciais inválidas' });
-      }
+      res.json(result);
 
-      // Gerar token JWT
-      const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-
-      res.json({
-        message: 'Login realizado com sucesso',
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          full_name: user.full_name
-        }
-      });
     } catch (error) {
-      console.error('Erro no login:', error);
-      res.status(500).json({ error: 'Erro ao realizar login' });
+      console.error('❌ Erro no login:', error.message);
+
+      const statusCode = error.message.includes('incorretos') ? 401 : 500;
+
+      res.status(statusCode).json({
+        success: false,
+        message: error.message
+      });
     }
   }
 );
 
-// Middleware de autenticação
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Token não fornecido' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Token inválido' });
-    }
-    req.user = user;
-    next();
-  });
-};
-
-// Obter perfil do usuário
-router.get('/profile', authenticateToken, (req, res) => {
+/**
+ * GET /api/auth/profile
+ * Rota protegida para testar middleware de autenticação
+ * 
+ * Headers: Authorization: Bearer <token>
+ * Response: Dados do usuário
+ */
+router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const user = db.prepare('SELECT id, username, email, full_name, phone, address, latitude, longitude, created_at FROM users WHERE id = ?').get(req.user.userId);
+    const userId = req.user.user_id;
+    
+    const user = await require('../database').get(
+      'SELECT id, username, email, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+
     if (!user) {
-      return res.status(404).json({ error: 'Usuário não encontrado' });
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
     }
-    res.json(user);
+
+    res.json({
+      success: true,
+      user: user
+    });
+
   } catch (error) {
-    console.error('Erro ao buscar perfil:', error);
-    res.status(500).json({ error: 'Erro ao buscar perfil' });
+    console.error('❌ Erro ao buscar perfil:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar perfil'
+    });
   }
 });
 
 module.exports = router;
-module.exports.authenticateToken = authenticateToken;
-

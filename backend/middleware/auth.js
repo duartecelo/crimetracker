@@ -1,30 +1,59 @@
 /**
- * Middleware de autenticação
+ * Middleware de autenticação JWT - AUTH-001
+ * Valida Authorization: Bearer <token>
  */
 
-const { verifyToken, extractTokenFromHeader, errorResponse } = require('../utils');
+const { verifyToken, extractTokenFromHeader } = require('../utils');
 
 /**
- * Middleware para verificar autenticação JWT
+ * Middleware para validar Authorization: Bearer <token>
+ * Rejeita com 401 se token ausente ou expirado
+ * 
+ * @param {Object} req - Request object
+ * @param {Object} res - Response object
+ * @param {Function} next - Next middleware
  */
 function authenticateToken(req, res, next) {
   try {
     const authHeader = req.headers['authorization'];
+    
+    // Rejeitar com 401 se header ausente
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token de autenticação não fornecido'
+      });
+    }
+
+    // Extrair token do formato "Bearer <token>"
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
-      return res.status(401).json(
-        errorResponse('Token de autenticação não fornecido')
-      );
+      return res.status(401).json({
+        success: false,
+        message: 'Formato de token inválido. Use: Authorization: Bearer <token>'
+      });
     }
 
+    // Verificar e decodificar token JWT
     const decoded = verifyToken(token);
+    
+    // Anexar dados do usuário ao request
     req.user = decoded;
+    
     next();
+
   } catch (error) {
-    return res.status(403).json(
-      errorResponse('Token inválido ou expirado', error.message)
-    );
+    // Rejeitar com 401 se expirado, 403 para outros erros
+    const statusCode = error.message.includes('jwt expired') ? 401 : 403;
+    const message = error.message.includes('jwt expired') 
+      ? 'Token expirado. Faça login novamente' 
+      : 'Token inválido';
+
+    return res.status(statusCode).json({
+      success: false,
+      message: message
+    });
   }
 }
 
@@ -32,8 +61,7 @@ function authenticateToken(req, res, next) {
  * Middleware para verificar se usuário é admin de um grupo
  */
 function requireGroupAdmin(req, res, next) {
-  // Implementar verificação de admin
-  // Por enquanto, apenas passa adiante
+  // TODO: Implementar verificação de admin
   next();
 }
 
@@ -41,8 +69,7 @@ function requireGroupAdmin(req, res, next) {
  * Middleware para verificar se usuário é dono do recurso
  */
 function requireOwnership(req, res, next) {
-  // Implementar verificação de ownership
-  // Por enquanto, apenas passa adiante
+  // TODO: Implementar verificação de ownership
   next();
 }
 
@@ -51,4 +78,3 @@ module.exports = {
   requireGroupAdmin,
   requireOwnership
 };
-

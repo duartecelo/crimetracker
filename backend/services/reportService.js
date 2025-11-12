@@ -1,90 +1,168 @@
 /**
- * Serviço de denúncias
+ * Serviço de Denúncias - CRIME-001
  */
 
 const db = require('../database');
-const { paginate } = require('../utils');
+const { 
+  generateUUID, 
+  getCurrentTimestamp, 
+  isValidCrimeType,
+  calculateDistance 
+} = require('../utils');
 
 /**
- * Cria uma nova denúncia
+ * Cria uma nova denúncia de crime
+ * @param {string} userId - ID do usuário
+ * @param {string} tipo - Tipo de crime
+ * @param {string} descricao - Descrição da denúncia
+ * @param {number} latitude - Latitude
+ * @param {number} longitude - Longitude
  */
-async function createReport(userId, reportData) {
-  const { title, description, category, latitude, longitude, address, image_path } = reportData;
+async function createReport(userId, tipo, descricao, latitude, longitude) {
+  const startTime = Date.now();
 
-  const result = await db.run(
-    `INSERT INTO reports (user_id, title, description, category, latitude, longitude, address, image_path)
+  // Validar tipo de crime
+  if (!isValidCrimeType(tipo)) {
+    throw new Error('Tipo de crime inválido. Use: Assalto, Furto, Agressão, Vandalismo, Roubo, Outro');
+  }
+
+  // Validar descrição (até 500 caracteres)
+  if (!descricao || descricao.trim().length === 0) {
+    throw new Error('Descrição é obrigatória');
+  }
+
+  if (descricao.length > 500) {
+    throw new Error('Descrição deve ter no máximo 500 caracteres');
+  }
+
+  // Validar latitude e longitude
+  if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) {
+    throw new Error('Latitude inválida (deve estar entre -90 e 90)');
+  }
+
+  if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
+    throw new Error('Longitude inválida (deve estar entre -180 e 180)');
+  }
+
+  // Gerar UUID para a denúncia
+  const reportId = generateUUID();
+  const timestamp = getCurrentTimestamp();
+
+  // Inserir denúncia no banco
+  await db.run(
+    `INSERT INTO crime_reports (id, user_id, tipo, descricao, lat, lon, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, title, description, category, latitude, longitude, address || null, image_path || null]
+    [reportId, userId, tipo, descricao.trim(), latitude, longitude, timestamp, timestamp]
   );
 
-  return {
-    reportId: result.lastID
-  };
-}
-
-/**
- * Lista denúncias com filtros
- */
-async function listReports(filters = {}, page = 1, limit = 20) {
-  const { category, status, userId } = filters;
-  const pagination = paginate(page, limit);
-
-  let sql = `
-    SELECT r.*, u.username, u.full_name
-    FROM reports r
-    JOIN users u ON r.user_id = u.id
-    WHERE 1=1
-  `;
-  const params = [];
-
-  if (category) {
-    sql += ' AND r.category = ?';
-    params.push(category);
-  }
-
-  if (status) {
-    sql += ' AND r.status = ?';
-    params.push(status);
-  }
-
-  if (userId) {
-    sql += ' AND r.user_id = ?';
-    params.push(userId);
-  }
-
-  sql += ' ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
-  params.push(pagination.limit, pagination.offset);
-
-  const reports = await db.all(sql, params);
-  return reports;
-}
-
-/**
- * Busca denúncia por ID
- */
-async function getReportById(reportId) {
+  // Buscar denúncia criada com dados do usuário
   const report = await db.get(
-    `SELECT r.*, u.username, u.full_name
-     FROM reports r
-     JOIN users u ON r.user_id = u.id
-     WHERE r.id = ?`,
+    `SELECT 
+      cr.id, 
+      cr.tipo, 
+      cr.descricao, 
+      cr.lat, 
+      cr.lon, 
+      cr.created_at,
+      u.username as author_username
+     FROM crime_reports cr
+     JOIN users u ON cr.user_id = u.id
+     WHERE cr.id = ?`,
     [reportId]
   );
 
-  if (!report) {
-    throw new Error('Denúncia não encontrada');
-  }
+  const duration = Date.now() - startTime;
+  console.log(`✅ Denúncia criada em ${duration}ms`);
 
   return report;
 }
 
 /**
- * Atualiza status de denúncia
+ * Busca denúncias próximas (últimos 30 dias)
+ * @param {number} latitude - Latitude de referência
+ * @param {number} longitude - Longitude de referência
+ * @param {number} radiusKm - Raio em quilômetros (padrão: 5)
  */
-async function updateReportStatus(reportId, userId, status) {
-  // Verificar se usuário é dono da denúncia
+async function getNearbyReports(latitude, longitude, radiusKm = 5) {
+  const startTime = Date.now();
+
+  // Validar parâmetros
+  if (typeof latitude !== 'number' || latitude < -90 || latitude > 90) {
+    throw new Error('Latitude inválida (deve estar entre -90 e 90)');
+  }
+
+  if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
+    throw new Error('Longitude inválida (deve estar entre -180 e 180)');
+  }
+
+  if (typeof radiusKm !== 'number' || radiusKm <= 0) {
+    throw new Error('Raio deve ser um número positivo');
+  }
+
+  // Calcular data de 30 dias atrás
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const dateThreshold = thirtyDaysAgo.toISOString();
+
+  // Buscar todas as denúncias dos últimos 30 dias
+  const allReports = await db.all(
+    `SELECT 
+      cr.id, 
+      cr.tipo, 
+      cr.descricao, 
+      cr.lat, 
+      cr.lon, 
+      cr.created_at,
+      u.username as author_username
+     FROM crime_reports cr
+     JOIN users u ON cr.user_id = u.id
+     WHERE cr.created_at >= ?
+     ORDER BY cr.created_at DESC`,
+    [dateThreshold]
+  );
+
+  // Filtrar por distância usando calculateDistance()
+  const radiusMeters = radiusKm * 1000;
+  const nearbyReports = allReports.filter(report => {
+    const distance = calculateDistance(latitude, longitude, report.lat, report.lon);
+    return distance <= radiusMeters;
+  });
+
+  // Adicionar distância a cada denúncia
+  const reportsWithDistance = nearbyReports.map(report => ({
+    ...report,
+    distance_meters: calculateDistance(latitude, longitude, report.lat, report.lon),
+    distance_km: (calculateDistance(latitude, longitude, report.lat, report.lon) / 1000).toFixed(2)
+  }));
+
+  const duration = Date.now() - startTime;
+  console.log(`✅ ${reportsWithDistance.length} denúncias encontradas em ${duration}ms`);
+
+  return reportsWithDistance;
+}
+
+/**
+ * Busca denúncia por ID
+ * @param {string} reportId - ID da denúncia
+ */
+async function getReportById(reportId) {
+  const startTime = Date.now();
+
   const report = await db.get(
-    'SELECT user_id FROM reports WHERE id = ?',
+    `SELECT 
+      cr.id, 
+      cr.tipo, 
+      cr.descricao, 
+      cr.lat, 
+      cr.lon, 
+      cr.created_at,
+      cr.updated_at,
+      cr.user_id,
+      u.username as author_username,
+      u.email as author_email
+     FROM crime_reports cr
+     JOIN users u ON cr.user_id = u.id
+     WHERE cr.id = ?`,
     [reportId]
   );
 
@@ -92,22 +170,114 @@ async function updateReportStatus(reportId, userId, status) {
     throw new Error('Denúncia não encontrada');
   }
 
-  if (report.user_id !== userId) {
-    throw new Error('Sem permissão para atualizar esta denúncia');
-  }
+  const duration = Date.now() - startTime;
+  console.log(`✅ Denúncia recuperada em ${duration}ms`);
 
-  await db.run(
-    'UPDATE reports SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    [status, reportId]
+  return report;
+}
+
+/**
+ * Busca denúncias do usuário
+ * @param {string} userId - ID do usuário
+ */
+async function getUserReports(userId) {
+  const reports = await db.all(
+    `SELECT 
+      id, 
+      tipo, 
+      descricao, 
+      lat, 
+      lon, 
+      created_at
+     FROM crime_reports
+     WHERE user_id = ?
+     ORDER BY created_at DESC`,
+    [userId]
   );
 
-  return { success: true };
+  return reports;
+}
+
+/**
+ * Atualiza denúncia
+ * @param {string} reportId - ID da denúncia
+ * @param {string} userId - ID do usuário (para verificar ownership)
+ * @param {Object} updates - Campos a atualizar
+ */
+async function updateReport(reportId, userId, updates) {
+  // Verificar se denúncia existe e pertence ao usuário
+  const report = await db.get(
+    'SELECT * FROM crime_reports WHERE id = ? AND user_id = ?',
+    [reportId, userId]
+  );
+
+  if (!report) {
+    throw new Error('Denúncia não encontrada ou você não tem permissão para editá-la');
+  }
+
+  const { tipo, descricao } = updates;
+  const fieldsToUpdate = [];
+  const values = [];
+
+  if (tipo) {
+    if (!isValidCrimeType(tipo)) {
+      throw new Error('Tipo de crime inválido');
+    }
+    fieldsToUpdate.push('tipo = ?');
+    values.push(tipo);
+  }
+
+  if (descricao) {
+    if (descricao.length > 500) {
+      throw new Error('Descrição deve ter no máximo 500 caracteres');
+    }
+    fieldsToUpdate.push('descricao = ?');
+    values.push(descricao.trim());
+  }
+
+  if (fieldsToUpdate.length === 0) {
+    throw new Error('Nenhum campo para atualizar');
+  }
+
+  fieldsToUpdate.push('updated_at = ?');
+  values.push(getCurrentTimestamp());
+  values.push(reportId);
+
+  await db.run(
+    `UPDATE crime_reports SET ${fieldsToUpdate.join(', ')} WHERE id = ?`,
+    values
+  );
+
+  return await getReportById(reportId);
+}
+
+/**
+ * Deleta denúncia
+ * @param {string} reportId - ID da denúncia
+ * @param {string} userId - ID do usuário (para verificar ownership)
+ */
+async function deleteReport(reportId, userId) {
+  // Verificar se denúncia existe e pertence ao usuário
+  const report = await db.get(
+    'SELECT * FROM crime_reports WHERE id = ? AND user_id = ?',
+    [reportId, userId]
+  );
+
+  if (!report) {
+    throw new Error('Denúncia não encontrada ou você não tem permissão para excluí-la');
+  }
+
+  await db.run('DELETE FROM crime_reports WHERE id = ?', [reportId]);
+
+  console.log(`✅ Denúncia ${reportId} deletada`);
+  return true;
 }
 
 module.exports = {
   createReport,
-  listReports,
+  getNearbyReports,
   getReportById,
-  updateReportStatus
+  getUserReports,
+  updateReport,
+  deleteReport
 };
-

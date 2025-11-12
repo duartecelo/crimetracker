@@ -133,18 +133,13 @@ function isValidEmail(email) {
  * @returns {boolean} True se o tipo é válido
  */
 function isValidCrimeType(tipo) {
+  // CRIME-001: Tipos válidos: Assalto, Furto, Agressão, Vandalismo, Roubo, Outro
   const validTypes = [
-    'roubo',
-    'furto',
     'assalto',
+    'furto',
+    'agressão',
     'vandalismo',
-    'agressao',
-    'trafico',
-    'homicidio',
-    'sequestro',
-    'invasao',
-    'suspeita',
-    'perturbacao',
+    'roubo',
     'outro'
   ];
   
@@ -157,19 +152,14 @@ function isValidCrimeType(tipo) {
  * @returns {Array<string>} Array com tipos de crimes válidos
  */
 function getCrimeTypes() {
+  // CRIME-001: Tipos válidos
   return [
-    'roubo',
-    'furto',
-    'assalto',
-    'vandalismo',
-    'agressao',
-    'trafico',
-    'homicidio',
-    'sequestro',
-    'invasao',
-    'suspeita',
-    'perturbacao',
-    'outro'
+    'Assalto',
+    'Furto',
+    'Agressão',
+    'Vandalismo',
+    'Roubo',
+    'Outro'
   ];
 }
 
@@ -179,10 +169,10 @@ function getCrimeTypes() {
  * @returns {Object} {valid: boolean, message: string}
  */
 function validatePassword(password) {
-  if (!password || password.length < 6) {
+  if (!password || password.length < 8) {
     return {
       valid: false,
-      message: 'Senha deve ter no mínimo 6 caracteres'
+      message: 'Senha deve ter no mínimo 8 caracteres'
     };
   }
   

@@ -13,7 +13,7 @@ module.exports = {
   // Configurações JWT
   jwt: {
     secret: process.env.JWT_SECRET || 'crimetracker-secret-key-change-in-production',
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h', // AUTH-001: 24 horas
     algorithm: 'HS256'
   },
 
