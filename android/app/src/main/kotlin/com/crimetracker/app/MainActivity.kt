@@ -7,7 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.crimetracker.app.ui.navigation.CrimeTrackerNavHost
+import androidx.navigation.compose.rememberNavController
+import com.crimetracker.app.navigation.NavGraph
 import com.crimetracker.app.ui.theme.CrimeTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -21,7 +22,8 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    CrimeTrackerNavHost()
+                    val navController = rememberNavController()
+                    NavGraph(navController = navController)
                 }
             }
         }

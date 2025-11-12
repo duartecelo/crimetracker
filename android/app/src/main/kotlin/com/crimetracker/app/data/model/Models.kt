@@ -4,177 +4,150 @@ import com.google.gson.annotations.SerializedName
 
 // Auth Models
 data class RegisterRequest(
-    val username: String,
     val email: String,
     val password: String,
-    @SerializedName("full_name") val fullName: String,
-    val phone: String? = null,
-    val address: String? = null,
-    val latitude: Double? = null,
-    val longitude: Double? = null
+    val username: String
 )
 
 data class LoginRequest(
-    val username: String,
+    val email: String,
     val password: String
 )
 
 data class AuthResponse(
-    val message: String,
-    val token: String,
+    val success: Boolean,
+    @SerializedName("user_id") val userId: String,
+    val username: String,
+    val email: String,
+    val token: String
+)
+
+data class UserProfileResponse(
+    val success: Boolean,
     val user: User
 )
 
 data class User(
-    val id: Int,
+    val id: String,
     val username: String,
     val email: String,
-    @SerializedName("full_name") val fullName: String,
-    val phone: String? = null,
-    val address: String? = null,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    @SerializedName("created_at") val createdAt: String? = null
+    @SerializedName("created_at") val createdAt: String
 )
 
 // Report Models
-data class ReportRequest(
-    val title: String,
-    val description: String,
-    val category: String,
+data class CreateReportRequest(
+    val tipo: String,
+    val descricao: String,
     val latitude: Double,
-    val longitude: Double,
-    val address: String? = null,
-    @SerializedName("image_path") val imagePath: String? = null
+    val longitude: Double
 )
 
 data class ReportResponse(
-    val message: String,
-    @SerializedName("reportId") val reportId: Int
+    val success: Boolean,
+    val data: Report
+)
+
+data class ReportsListResponse(
+    val success: Boolean,
+    val data: List<Report>,
+    val count: Int
 )
 
 data class Report(
-    val id: Int,
-    @SerializedName("user_id") val userId: Int,
-    val title: String,
-    val description: String,
-    val category: String,
-    val latitude: Double,
-    val longitude: Double,
-    val address: String? = null,
-    val status: String,
-    @SerializedName("image_path") val imagePath: String? = null,
-    val username: String,
-    @SerializedName("full_name") val fullName: String,
+    val id: String,
+    val tipo: String,
+    val descricao: String,
+    val lat: Double,
+    val lon: Double,
     @SerializedName("created_at") val createdAt: String,
-    @SerializedName("updated_at") val updatedAt: String
+    @SerializedName("author_username") val authorUsername: String? = null,
+    @SerializedName("distance_meters") val distanceMeters: Int? = null,
+    @SerializedName("distance_km") val distanceKm: String? = null
 )
 
 // Group Models
-data class GroupRequest(
-    val name: String,
-    val description: String,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    @SerializedName("radius_meters") val radiusMeters: Int? = null
+data class CreateGroupRequest(
+    val nome: String,
+    val descricao: String? = null
 )
 
 data class GroupResponse(
-    val message: String,
-    @SerializedName("groupId") val groupId: Int
+    val success: Boolean,
+    val data: Group,
+    val message: String? = null
+)
+
+data class GroupsListResponse(
+    val success: Boolean,
+    val data: List<Group>,
+    val count: Int
 )
 
 data class Group(
-    val id: Int,
-    val name: String,
-    val description: String,
-    @SerializedName("created_by") val createdBy: Int,
-    @SerializedName("creator_username") val creatorUsername: String,
+    val id: String,
+    val nome: String,
+    val descricao: String? = null,
+    @SerializedName("criador_username") val criadorUsername: String? = null,
     @SerializedName("member_count") val memberCount: Int,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    @SerializedName("radius_meters") val radiusMeters: Int,
     @SerializedName("created_at") val createdAt: String
 )
 
-data class GroupDetail(
-    val id: Int,
-    val name: String,
-    val description: String,
-    @SerializedName("created_by") val createdBy: Int,
-    @SerializedName("creator_username") val creatorUsername: String,
-    @SerializedName("creator_name") val creatorName: String,
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    @SerializedName("radius_meters") val radiusMeters: Int,
-    val members: List<GroupMember>,
-    @SerializedName("created_at") val createdAt: String
+data class GroupMembersResponse(
+    val success: Boolean,
+    val data: List<GroupMember>,
+    val count: Int
 )
 
 data class GroupMember(
-    val id: Int,
+    val id: String,
     val username: String,
-    @SerializedName("full_name") val fullName: String,
-    val role: String,
-    @SerializedName("joined_at") val joinedAt: String
+    val email: String,
+    @SerializedName("joined_at") val joinedAt: String,
+    @SerializedName("is_creator") val isCreator: Int
 )
 
-// Feed Models
-data class PostRequest(
-    val content: String,
-    @SerializedName("group_id") val groupId: Int? = null,
-    @SerializedName("image_path") val imagePath: String? = null
+// Post Models
+data class CreatePostRequest(
+    val conteudo: String
 )
 
 data class PostResponse(
-    val message: String,
-    @SerializedName("postId") val postId: Int
+    val success: Boolean,
+    val data: Post
+)
+
+data class PostsListResponse(
+    val success: Boolean,
+    val data: List<Post>,
+    val pagination: Pagination
 )
 
 data class Post(
-    val id: Int,
-    @SerializedName("user_id") val userId: Int,
-    @SerializedName("group_id") val groupId: Int? = null,
-    val content: String,
-    @SerializedName("image_path") val imagePath: String? = null,
-    val username: String,
-    @SerializedName("full_name") val fullName: String,
-    @SerializedName("comment_count") val commentCount: Int,
-    @SerializedName("created_at") val createdAt: String
+    val id: String,
+    @SerializedName("group_id") val groupId: String,
+    @SerializedName("author_id") val authorId: String,
+    val conteudo: String,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("author_username") val authorUsername: String,
+    @SerializedName("group_name") val groupName: String? = null
 )
 
-data class PostDetail(
-    val id: Int,
-    @SerializedName("user_id") val userId: Int,
-    @SerializedName("group_id") val groupId: Int? = null,
-    val content: String,
-    @SerializedName("image_path") val imagePath: String? = null,
-    val username: String,
-    @SerializedName("full_name") val fullName: String,
-    val comments: List<Comment>,
-    @SerializedName("created_at") val createdAt: String
+data class Pagination(
+    val page: Int,
+    val limit: Int,
+    val total: Int,
+    @SerializedName("totalPages") val totalPages: Int,
+    @SerializedName("hasNextPage") val hasNextPage: Boolean,
+    @SerializedName("hasPrevPage") val hasPrevPage: Boolean
 )
 
-data class Comment(
-    val id: Int,
-    @SerializedName("post_id") val postId: Int,
-    @SerializedName("user_id") val userId: Int,
-    val content: String,
-    val username: String,
-    @SerializedName("full_name") val fullName: String,
-    @SerializedName("created_at") val createdAt: String
-)
-
-data class CommentRequest(
-    val content: String
-)
-
-data class CommentResponse(
-    val message: String,
-    @SerializedName("commentId") val commentId: Int
-)
-
-data class MessageResponse(
+// Common Models
+data class DeleteResponse(
+    val success: Boolean,
     val message: String
 )
 
+data class ErrorResponse(
+    val success: Boolean,
+    val message: String
+)

@@ -5,75 +5,95 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import com.crimetracker.app.ui.screens.home.tabs.FeedTab
+import com.crimetracker.app.ui.screens.home.tabs.GroupsTab
+import com.crimetracker.app.ui.screens.home.tabs.ReportsTab
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onNavigateToReportCrime: () -> Unit,
+    onNavigateToCreateGroup: () -> Unit,
+    onNavigateToCreatePost: (String) -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onLogout: () -> Unit
+) {
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Feed", "Denúncias", "Grupos", "Perfil")
-    val icons = listOf(
-        Icons.Default.Home,
-        Icons.Default.Warning,
-        Icons.Default.Group,
-        Icons.Default.Person
-    )
+    var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("CrimeTracker") }
+                title = { Text("CrimeTracker") },
+                actions = {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "Menu")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Perfil") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToProfile()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Person, "Perfil")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Sair") },
+                            onClick = {
+                                showMenu = false
+                                onLogout()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.ExitToApp, "Sair")
+                            }
+                        )
+                    }
+                }
             )
         },
         bottomBar = {
             NavigationBar {
-                tabs.forEachIndexed { index, title ->
-                    NavigationBarItem(
-                        icon = { Icon(icons[index], contentDescription = title) },
-                        label = { Text(title) },
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index }
-                    )
-                }
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { /* Add new item */ }) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar")
+                NavigationBarItem(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    icon = { Icon(Icons.Default.Home, "Feed") },
+                    label = { Text("Feed") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    icon = { Icon(Icons.Default.Warning, "Denúncias") },
+                    label = { Text("Denúncias") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    icon = { Icon(Icons.Default.Group, "Grupos") },
+                    label = { Text("Grupos") }
+                )
             }
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = icons[selectedTab],
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = tabs[selectedTab],
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Tela em desenvolvimento",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        when (selectedTab) {
+            0 -> FeedTab(
+                modifier = Modifier.padding(padding),
+                onNavigateToCreatePost = onNavigateToCreatePost
+            )
+            1 -> ReportsTab(
+                modifier = Modifier.padding(padding),
+                onNavigateToReportCrime = onNavigateToReportCrime
+            )
+            2 -> GroupsTab(
+                modifier = Modifier.padding(padding),
+                onNavigateToCreateGroup = onNavigateToCreateGroup
+            )
         }
     }
 }
-
