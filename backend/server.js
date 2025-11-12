@@ -81,6 +81,12 @@ async function startServer() {
     console.log('📦 Inicializando banco de dados...');
     await database.initDatabase();
 
+    // Buscar estatísticas do banco de dados
+    const userCount = await database.get('SELECT COUNT(*) as count FROM users');
+    const reportCount = await database.get('SELECT COUNT(*) as count FROM crime_reports');
+    const groupCount = await database.get('SELECT COUNT(*) as count FROM groups');
+    const postCount = await database.get('SELECT COUNT(*) as count FROM posts');
+
     // Iniciar servidor HTTP
     const server = app.listen(config.server.port, config.server.host, () => {
       console.log('');
@@ -93,7 +99,13 @@ async function startServer() {
       console.log(`🌐 Servidor: http://${config.server.host}:${config.server.port}`);
       console.log(`📱 Android: http://10.0.2.2:${config.server.port}`);
       console.log(`🔧 Ambiente: ${config.server.environment}`);
-      console.log(`💾 Banco: ${config.database.path}`);
+      console.log('');
+      console.log('💾 Banco de Dados:');
+      console.log(`   Caminho: ${config.database.path}`);
+      console.log(`   👤 Usuários: ${userCount.count}`);
+      console.log(`   🚨 Denúncias: ${reportCount.count}`);
+      console.log(`   👥 Grupos: ${groupCount.count}`);
+      console.log(`   📰 Posts: ${postCount.count}`);
       console.log('');
       console.log('📡 Endpoints disponíveis:');
       console.log(`   GET  /health`);
