@@ -4,7 +4,32 @@
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const config = require('./config');
+
+// ========================================
+// FUNÇÕES DE ID E TIMESTAMP
+// ========================================
+
+/**
+ * Gera UUID único (versão 4)
+ * @returns {string} UUID no formato xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+ */
+function generateUUID() {
+  return crypto.randomUUID();
+}
+
+/**
+ * Retorna timestamp atual no formato ISO 8601
+ * @returns {string} Data e hora no formato 'YYYY-MM-DDTHH:mm:ss.sssZ'
+ */
+function getCurrentTimestamp() {
+  return new Date().toISOString();
+}
+
+// ========================================
+// FUNÇÕES DE VALIDAÇÃO
+// ========================================
 
 /**
  * Hash de senha usando bcrypt
@@ -97,8 +122,55 @@ function errorResponse(message, details = null) {
  * @returns {boolean} True se o email é válido
  */
 function isValidEmail(email) {
+  if (!email || typeof email !== 'string') return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  return emailRegex.test(email.trim());
+}
+
+/**
+ * Valida tipo de crime
+ * @param {string} tipo - Tipo de crime a validar
+ * @returns {boolean} True se o tipo é válido
+ */
+function isValidCrimeType(tipo) {
+  const validTypes = [
+    'roubo',
+    'furto',
+    'assalto',
+    'vandalismo',
+    'agressao',
+    'trafico',
+    'homicidio',
+    'sequestro',
+    'invasao',
+    'suspeita',
+    'perturbacao',
+    'outro'
+  ];
+  
+  if (!tipo || typeof tipo !== 'string') return false;
+  return validTypes.includes(tipo.toLowerCase().trim());
+}
+
+/**
+ * Lista todos os tipos de crimes válidos
+ * @returns {Array<string>} Array com tipos de crimes válidos
+ */
+function getCrimeTypes() {
+  return [
+    'roubo',
+    'furto',
+    'assalto',
+    'vandalismo',
+    'agressao',
+    'trafico',
+    'homicidio',
+    'sequestro',
+    'invasao',
+    'suspeita',
+    'perturbacao',
+    'outro'
+  ];
 }
 
 /**
@@ -127,28 +199,73 @@ function sanitizeString(str) {
   return str.trim().replace(/[<>]/g, '');
 }
 
+// ========================================
+// FUNÇÕES GEOGRÁFICAS
+// ========================================
+
 /**
- * Calcula distância entre dois pontos geográficos (fórmula de Haversine)
- * @param {number} lat1 - Latitude do ponto 1
- * @param {number} lon1 - Longitude do ponto 1
- * @param {number} lat2 - Latitude do ponto 2
- * @param {number} lon2 - Longitude do ponto 2
+ * Calcula distância entre dois pontos geográficos usando fórmula de Haversine
+ * @param {number} lat1 - Latitude do ponto 1 (em graus decimais)
+ * @param {number} lon1 - Longitude do ponto 1 (em graus decimais)
+ * @param {number} lat2 - Latitude do ponto 2 (em graus decimais)
+ * @param {number} lon2 - Longitude do ponto 2 (em graus decimais)
  * @returns {number} Distância em metros
+ * 
+ * @example
+ * // Distância entre São Paulo e Rio de Janeiro
+ * const distancia = calculateDistance(-23.5505, -46.6333, -22.9068, -43.1729);
+ * console.log(distancia); // ~357000 metros (357 km)
  */
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Raio da Terra em metros
+  // Validar entradas
+  if (typeof lat1 !== 'number' || typeof lon1 !== 'number' ||
+      typeof lat2 !== 'number' || typeof lon2 !== 'number') {
+    throw new Error('Coordenadas devem ser números');
+  }
+
+  if (lat1 < -90 || lat1 > 90 || lat2 < -90 || lat2 > 90) {
+    throw new Error('Latitude deve estar entre -90 e 90 graus');
+  }
+
+  if (lon1 < -180 || lon1 > 180 || lon2 < -180 || lon2 > 180) {
+    throw new Error('Longitude deve estar entre -180 e 180 graus');
+  }
+
+  // Raio da Terra em metros
+  const R = 6371e3;
+  
+  // Converter graus para radianos
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
+  // Fórmula de Haversine
   const a =
     Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
     Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  return R * c; // Distância em metros
+  // Distância em metros
+  const distanceInMeters = R * c;
+  
+  return Math.round(distanceInMeters); // Arredondar para inteiro
+}
+
+/**
+ * Valida coordenadas geográficas
+ * @param {number} lat - Latitude
+ * @param {number} lon - Longitude
+ * @returns {boolean} True se as coordenadas são válidas
+ */
+function isValidCoordinates(lat, lon) {
+  return (
+    typeof lat === 'number' &&
+    typeof lon === 'number' &&
+    lat >= -90 && lat <= 90 &&
+    lon >= -180 && lon <= 180
+  );
 }
 
 /**
@@ -260,20 +377,40 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ========================================
+// EXPORTS
+// ========================================
+
 module.exports = {
+  // ID e Timestamp
+  generateUUID,
+  getCurrentTimestamp,
+  
+  // Autenticação
   hashPassword,
   comparePassword,
   generateToken,
   verifyToken,
+  
+  // Validação
+  isValidEmail,
+  isValidCrimeType,
+  getCrimeTypes,
+  validatePassword,
+  isValidCoordinates,
+  
+  // Geográficas
+  calculateDistance,
+  
+  // Formatação
   successResponse,
   errorResponse,
-  isValidEmail,
-  validatePassword,
-  sanitizeString,
-  calculateDistance,
   formatDate,
-  extractTokenFromHeader,
+  sanitizeString,
   generateSlug,
+  
+  // Utilitários
+  extractTokenFromHeader,
   paginate,
   handleError,
   delay

@@ -49,99 +49,93 @@ function initDatabase() {
  * Cria as tabelas do banco de dados
  */
 function createTables() {
+  console.log('📦 Criando tabelas do banco de dados...');
+
   // Tabela de usuários
+  // Campos: id, email, senha (password_hash), username, created_at
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
+      id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      full_name TEXT NOT NULL,
-      phone TEXT,
-      address TEXT,
-      latitude REAL,
-      longitude REAL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      username TEXT UNIQUE NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  console.log('  ✓ Tabela users criada');
 
-  // Tabela de denúncias
+  // Tabela de denúncias de crimes
+  // Campos: id, user_id, tipo, descrição, lat, lon, datas (created_at, updated_at)
   db.exec(`
-    CREATE TABLE IF NOT EXISTS reports (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      category TEXT NOT NULL,
-      latitude REAL NOT NULL,
-      longitude REAL NOT NULL,
-      address TEXT,
-      status TEXT DEFAULT 'pending',
-      image_path TEXT,
+    CREATE TABLE IF NOT EXISTS crime_reports (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      descricao TEXT NOT NULL,
+      lat REAL NOT NULL,
+      lon REAL NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+  console.log('  ✓ Tabela crime_reports criada');
 
   // Tabela de grupos de bairro
+  // Campos: id, nome, descrição, criador (creator_id), data (created_at)
   db.exec(`
     CREATE TABLE IF NOT EXISTS groups (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      created_by INTEGER NOT NULL,
-      latitude REAL,
-      longitude REAL,
-      radius_meters INTEGER DEFAULT 1000,
+      id TEXT PRIMARY KEY,
+      nome TEXT NOT NULL,
+      descricao TEXT,
+      criador TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (criador) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+  console.log('  ✓ Tabela groups criada');
 
   // Tabela de membros dos grupos
+  // Campos: id de grupo (group_id) e id de usuário (user_id), joined_at
   db.exec(`
     CREATE TABLE IF NOT EXISTS group_members (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      group_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      role TEXT DEFAULT 'member',
+      group_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
       joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (group_id, user_id),
       FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(group_id, user_id)
-    )
-  `);
-
-  // Tabela de posts do feed
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS feed_posts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      group_id INTEGER,
-      content TEXT NOT NULL,
-      image_path TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Tabela de comentários
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS comments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      post_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      content TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (post_id) REFERENCES feed_posts(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+  console.log('  ✓ Tabela group_members criada');
+
+  // Tabela de posts do feed
+  // Campos: id, grupo (group_id), autor (author_id), conteúdo, created_at
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS posts (
+      id TEXT PRIMARY KEY,
+      group_id TEXT,
+      author_id TEXT NOT NULL,
+      conteudo TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  console.log('  ✓ Tabela posts criada');
+
+  // Criar índices para melhorar performance
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_crime_reports_user_id ON crime_reports(user_id);
+    CREATE INDEX IF NOT EXISTS idx_crime_reports_tipo ON crime_reports(tipo);
+    CREATE INDEX IF NOT EXISTS idx_crime_reports_location ON crime_reports(lat, lon);
+    CREATE INDEX IF NOT EXISTS idx_groups_criador ON groups(criador);
+    CREATE INDEX IF NOT EXISTS idx_posts_group_id ON posts(group_id);
+    CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
+  `);
+  console.log('  ✓ Índices criados');
+
+  console.log('✅ Todas as tabelas foram criadas com sucesso!');
 }
 
 /**
