@@ -6,14 +6,20 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.crimetracker.app.ui.screens.auth.ForgotPasswordScreen
 import com.crimetracker.app.ui.screens.auth.LoginScreen
 import com.crimetracker.app.ui.screens.auth.RegisterScreen
+import com.crimetracker.app.ui.screens.auth.ResetPasswordScreen
 import com.crimetracker.app.ui.screens.group.CreateGroupScreen
 import com.crimetracker.app.ui.screens.home.HomeScreen
+import com.crimetracker.app.ui.screens.home.MapHomeScreen
+import com.crimetracker.app.ui.screens.map.MapScreen
 import com.crimetracker.app.ui.screens.post.CreatePostScreen
 import com.crimetracker.app.ui.screens.profile.ProfileScreen
+import com.crimetracker.app.ui.screens.settings.SettingsScreen
 import com.crimetracker.app.ui.screens.report.ReportCrimeScreen
 import com.crimetracker.app.ui.screens.splash.SplashScreen
+import com.crimetracker.app.ui.screens.community.CommunityScreen
 
 @Composable
 fun NavGraph(
@@ -50,6 +56,40 @@ fun NavGraph(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
+                },
+                onNavigateToForgotPassword = {
+                    navController.navigate(Screen.ForgotPassword.route)
+                }
+            )
+        }
+        
+        composable(Screen.ForgotPassword.route) {
+            ForgotPasswordScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToReset = { email ->
+                    navController.navigate(Screen.ResetPassword.createRoute(email))
+                }
+            )
+        }
+        
+        composable(
+            route = Screen.ResetPassword.route,
+            arguments = listOf(
+                navArgument("email") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val email = backStackEntry.arguments?.getString("email") ?: ""
+            ResetPasswordScreen(
+                email = email,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onPasswordReset = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.ForgotPassword.route) { inclusive = true }
+                    }
                 }
             )
         }
@@ -67,25 +107,37 @@ fun NavGraph(
             )
         }
 
-        // Home
+        // Home - Tela principal com mapa
         composable(Screen.Home.route) {
-            HomeScreen(
+            MapHomeScreen(
                 onNavigateToReportCrime = {
                     navController.navigate(Screen.ReportCrime.route)
                 },
-                onNavigateToCreateGroup = {
-                    navController.navigate(Screen.CreateGroup.route)
-                },
-                onNavigateToCreatePost = { groupId ->
-                    navController.navigate(Screen.CreatePost.createRoute(groupId))
+                onNavigateToCommunity = {
+                    navController.navigate(Screen.Community.route)
                 },
                 onNavigateToProfile = {
                     navController.navigate(Screen.Profile.route)
                 },
+                onReportClick = { reportId ->
+                    // TODO: Navegar para detalhes do report
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
+                        popUpTo(Screen.Splash.route) { inclusive = true }
                     }
+                }
+            )
+        }
+        
+        // Map standalone
+        composable(Screen.Map.route) {
+            MapScreen(
+                onNavigateToCreateReport = {
+                    navController.navigate(Screen.ReportCrime.route)
+                },
+                onReportClick = { report ->
+                    // TODO: Navegar para detalhes do report
                 }
             )
         }
@@ -129,6 +181,30 @@ fun NavGraph(
             ProfileScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
+                }
+            )
+        }
+        
+        // Settings
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        // Community
+        composable(Screen.Community.route) {
+            CommunityScreen(
+                onNavigateToCreateGroup = {
+                    navController.navigate(Screen.CreateGroup.route)
+                },
+                onNavigateToGroup = { groupId ->
+                    // TODO: Navegar para tela de detalhes do grupo
                 }
             )
         }

@@ -3,8 +3,10 @@ package com.crimetracker.app.data.repository
 import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.data.local.dao.UserDao
 import com.crimetracker.app.data.mapper.toEntity
+import com.crimetracker.app.data.model.ForgotPasswordRequest
 import com.crimetracker.app.data.model.LoginRequest
 import com.crimetracker.app.data.model.RegisterRequest
+import com.crimetracker.app.data.model.ResetPasswordRequest
 import com.crimetracker.app.data.remote.ApiService
 import com.crimetracker.app.util.Resource
 import kotlinx.coroutines.flow.Flow
@@ -104,6 +106,44 @@ class AuthRepository @Inject constructor(
     fun isLoggedIn(): Flow<Boolean> = flow {
         val token = userPreferences.authToken.first()
         emit(!token.isNullOrEmpty())
+    }
+
+    suspend fun forgotPassword(email: String): Resource<Unit> {
+        return try {
+            val response = apiService.forgotPassword(ForgotPasswordRequest(email))
+            
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(Unit)
+            } else {
+                val errorMsg = when (response.code()) {
+                    404 -> "Email não encontrado"
+                    400 -> "Email inválido"
+                    else -> "Erro ao enviar código: ${response.code()}"
+                }
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Resource.Error("Erro de conexão: ${e.localizedMessage}")
+        }
+    }
+
+    suspend fun resetPassword(email: String, code: String, newPassword: String): Resource<Unit> {
+        return try {
+            val response = apiService.resetPassword(ResetPasswordRequest(email, code, newPassword))
+            
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(Unit)
+            } else {
+                val errorMsg = when (response.code()) {
+                    400 -> "Código inválido ou senha não atende aos requisitos"
+                    404 -> "Código expirado ou inválido"
+                    else -> "Erro ao redefinir senha: ${response.code()}"
+                }
+                Resource.Error(errorMsg)
+            }
+        } catch (e: Exception) {
+            Resource.Error("Erro de conexão: ${e.localizedMessage}")
+        }
     }
 }
 

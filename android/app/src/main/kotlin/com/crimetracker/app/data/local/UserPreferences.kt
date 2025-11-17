@@ -3,6 +3,7 @@ package com.crimetracker.app.data.local
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -18,6 +19,12 @@ class UserPreferences(private val context: Context) {
         private val USER_ID_KEY = stringPreferencesKey("user_id")
         private val USERNAME_KEY = stringPreferencesKey("username")
         private val EMAIL_KEY = stringPreferencesKey("email")
+        private val THEME_MODE_KEY = stringPreferencesKey("theme_mode") // "light", "dark", "system"
+        private val ANONYMOUS_MODE_DEFAULT_KEY = booleanPreferencesKey("anonymous_mode_default")
+        private val NOTIFICATION_RADIUS_KEY = stringPreferencesKey("notification_radius") // em km
+        private val MAP_TYPE_KEY = stringPreferencesKey("map_type") // "standard", "satellite"
+        private val USER_NICKNAME_KEY = stringPreferencesKey("user_nickname")
+        private val USER_COLOR_KEY = stringPreferencesKey("user_color") // cor de destaque
     }
 
     val authToken: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -57,6 +64,72 @@ class UserPreferences(private val context: Context) {
             token = preferences[TOKEN_KEY]
         }.collect { }
         return !token.isNullOrEmpty()
+    }
+
+    // Theme preferences
+    val themeMode: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[THEME_MODE_KEY] ?: "system"
+    }
+
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[THEME_MODE_KEY] = mode
+        }
+    }
+
+    // Anonymous mode default
+    val anonymousModeDefault: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[ANONYMOUS_MODE_DEFAULT_KEY] ?: false
+    }
+
+    suspend fun setAnonymousModeDefault(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[ANONYMOUS_MODE_DEFAULT_KEY] = enabled
+        }
+    }
+
+    // Notification radius (km)
+    val notificationRadius: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[NOTIFICATION_RADIUS_KEY] ?: "5"
+    }
+
+    suspend fun setNotificationRadius(radius: String) {
+        context.dataStore.edit { preferences ->
+            preferences[NOTIFICATION_RADIUS_KEY] = radius
+        }
+    }
+
+    // Map type
+    val mapType: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[MAP_TYPE_KEY] ?: "standard"
+    }
+
+    suspend fun setMapType(type: String) {
+        context.dataStore.edit { preferences ->
+            preferences[MAP_TYPE_KEY] = type
+        }
+    }
+
+    // User nickname
+    val userNickname: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[USER_NICKNAME_KEY]
+    }
+
+    suspend fun setUserNickname(nickname: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USER_NICKNAME_KEY] = nickname
+        }
+    }
+
+    // User color
+    val userColor: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[USER_COLOR_KEY] ?: "#1E3A8A" // azul marinho padrão
+    }
+
+    suspend fun setUserColor(color: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USER_COLOR_KEY] = color
+        }
     }
 }
 

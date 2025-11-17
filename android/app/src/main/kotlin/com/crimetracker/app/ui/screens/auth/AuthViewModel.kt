@@ -91,6 +91,69 @@ class AuthViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
 
+    fun clearSuccess() {
+        _uiState.value = _uiState.value.copy(successMessage = null)
+    }
+
+    fun forgotPassword(email: String) {
+        if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            _uiState.value = _uiState.value.copy(error = "Digite um email válido")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            when (val result = authRepository.forgotPassword(email)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        successMessage = "Código enviado para seu email!"
+                    )
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun resetPassword(email: String, code: String, newPassword: String) {
+        if (code.length != 6) {
+            _uiState.value = _uiState.value.copy(error = "Código inválido")
+            return
+        }
+
+        if (newPassword.length < 8) {
+            _uiState.value = _uiState.value.copy(error = "A senha deve ter pelo menos 8 caracteres")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            when (val result = authRepository.resetPassword(email, code, newPassword)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        successMessage = "Senha redefinida com sucesso!"
+                    )
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
+                }
+                else -> {}
+            }
+        }
+    }
+
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()

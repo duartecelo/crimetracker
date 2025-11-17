@@ -96,10 +96,11 @@ dependencies {
     // DataStore for preferences
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     
-    // Google Maps & Location
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    // Location
     implementation("com.google.android.gms:play-services-location:21.3.0")
-    implementation("com.google.maps.android:maps-compose:6.2.1")
+    
+    // OpenStreetMap (OSMDroid)
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
     
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.7.0")

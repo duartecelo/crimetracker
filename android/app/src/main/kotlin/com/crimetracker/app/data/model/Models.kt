@@ -34,6 +34,26 @@ data class User(
     @SerializedName("created_at") val createdAt: String
 )
 
+data class ForgotPasswordRequest(
+    val email: String
+)
+
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val newPassword: String
+)
+
+data class ForgotPasswordResponse(
+    val success: Boolean,
+    val message: String
+)
+
+data class ResetPasswordResponse(
+    val success: Boolean,
+    val message: String
+)
+
 // Report Models
 data class CreateReportRequest(
     val tipo: String,
@@ -62,7 +82,29 @@ data class Report(
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("author_username") val authorUsername: String? = null,
     @SerializedName("distance_meters") val distanceMeters: Int? = null,
-    @SerializedName("distance_km") val distanceKm: String? = null
+    @SerializedName("distance_km") val distanceKm: String? = null,
+    @SerializedName("useful_count") val usefulCount: Int = 0,
+    @SerializedName("not_useful_count") val notUsefulCount: Int = 0,
+    @SerializedName("user_feedback") val userFeedback: String? = null, // "useful", "not_useful", null
+    @SerializedName("reliability_score") val reliabilityScore: Float? = null
+)
+
+data class ReportFeedbackRequest(
+    @SerializedName("report_id") val reportId: String,
+    val feedback: String // "useful" ou "not_useful"
+)
+
+data class ReportAbuseRequest(
+    @SerializedName("report_id") val reportId: String,
+    val reason: String, // "false_content", "offensive", "spam", "other"
+    @SerializedName("description") val description: String? = null
+)
+
+data class ReportFeedbackResponse(
+    val success: Boolean,
+    val message: String,
+    @SerializedName("useful_count") val usefulCount: Int,
+    @SerializedName("not_useful_count") val notUsefulCount: Int
 )
 
 // Group Models

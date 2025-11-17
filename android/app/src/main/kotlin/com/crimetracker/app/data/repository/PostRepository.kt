@@ -135,6 +135,34 @@ class PostRepository @Inject constructor(
         }
     }
 
+    suspend fun getUserPosts(): Resource<List<Post>> {
+        return try {
+            val response = apiService.getUserPosts()
+            
+            if (response.isSuccessful && response.body() != null) {
+                val posts = response.body()!!.data
+                postDao.insertPosts(posts.map { it.toEntity() })
+                Resource.Success(posts)
+            } else {
+                val errorMsg = when (response.code()) {
+                    401 -> "Não autenticado. Faça login novamente."
+                    else -> "Erro ao buscar posts: ${response.code()}"
+                }
+                // Retornar cache
+                val cachedPosts = postDao.getAllPosts().map { entities ->
+                    entities.map { it.toPost() }
+                }
+                Resource.Error(errorMsg, cachedPosts)
+            }
+        } catch (e: Exception) {
+            // Retornar cache
+            val cachedPosts = postDao.getAllPosts().map { entities ->
+                entities.map { it.toPost() }
+            }
+            Resource.Error("Erro de conexão: ${e.localizedMessage}", cachedPosts)
+        }
+    }
+
     suspend fun canDeletePost(post: Post): Boolean {
         val userId = userPreferences.userId.first()
         return post.authorId == userId

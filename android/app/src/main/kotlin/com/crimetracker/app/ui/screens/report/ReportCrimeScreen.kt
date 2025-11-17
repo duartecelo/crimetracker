@@ -21,16 +21,23 @@ fun ReportCrimeScreen(
     onNavigateBack: () -> Unit,
     viewModel: ReportViewModel = hiltViewModel()
 ) {
-    var tipo by remember { mutableStateOf("Assalto") }
+    var tipo by remember { mutableStateOf("Roubo/Assalto com violência ou ameaça") }
     var descricao by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
+    var isAnonymous by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val crimeTypes = listOf("Assalto", "Furto", "Agressão", "Vandalismo", "Roubo", "Outro")
+    // Novas categorias unificadas
+    val crimeTypes = listOf(
+        "Roubo/Assalto com violência ou ameaça",
+        "Furto (sem violência)",
+        "Furto/Roubo de veículo",
+        "Outros crimes patrimoniais"
+    )
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -142,6 +149,31 @@ fun ReportCrimeScreen(
                 supportingText = { Text("${descricao.length}/500") },
                 enabled = !uiState.isLoading
             )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Switch para modo anônimo
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Enviar como anônimo",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = "Sua identidade não será divulgada",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = isAnonymous,
+                    onCheckedChange = { isAnonymous = it }
+                )
+            }
             
             Spacer(modifier = Modifier.height(24.dp))
             

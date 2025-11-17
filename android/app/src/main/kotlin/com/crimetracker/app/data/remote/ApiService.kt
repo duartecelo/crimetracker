@@ -16,6 +16,12 @@ interface ApiService {
     @GET("api/auth/profile")
     suspend fun getProfile(): Response<UserProfileResponse>
     
+    @POST("api/auth/forgot-password")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<ForgotPasswordResponse>
+    
+    @POST("api/auth/reset-password")
+    suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<ResetPasswordResponse>
+    
     // REPORTS
     @POST("api/reports")
     suspend fun createReport(@Body request: CreateReportRequest): Response<ReportResponse>
@@ -29,6 +35,18 @@ interface ApiService {
     
     @GET("api/reports/{id}")
     suspend fun getReportById(@Path("id") id: String): Response<ReportResponse>
+    
+    @POST("api/reports/{id}/feedback")
+    suspend fun submitReportFeedback(
+        @Path("id") reportId: String,
+        @Body request: ReportFeedbackRequest
+    ): Response<ReportFeedbackResponse>
+    
+    @POST("api/reports/{id}/abuse")
+    suspend fun reportAbuse(
+        @Path("id") reportId: String,
+        @Body request: ReportAbuseRequest
+    ): Response<MessageResponse>
     
     // GROUPS
     @POST("api/groups")
@@ -65,6 +83,9 @@ interface ApiService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<PostsListResponse>
+    
+    @GET("api/posts/user/me")
+    suspend fun getUserPosts(): Response<PostsListResponse>
     
     @DELETE("api/posts/{id}")
     suspend fun deletePost(@Path("id") postId: String): Response<DeleteResponse>
