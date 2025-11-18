@@ -24,6 +24,11 @@ jobs:
     # Sistema operacional onde o job será executado
     # Opções: ubuntu-latest, windows-latest, macos-latest
     runs-on: ubuntu-latest
+
+    # Apontar para backend
+    defaults:
+      run:
+        working-directory: ./backend
     
     # Estratégia de matriz para testar em múltiplas versões do Node
     strategy:
@@ -44,6 +49,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           # Cache de dependências para acelerar builds
           cache: 'npm'
+          cache-dependency-path: './backend/package-lock.json'
       
       # 3. Instalar dependências
       - name: Instalar dependências
@@ -63,7 +69,7 @@ jobs:
         if: matrix.node-version == '20.x'
         with:
           name: coverage-report
-          path: coverage/
+          path: backend/coverage/
           retention-days: 30
       
       # 7. Comentar cobertura no PR (opcional - requer configuração adicional)
