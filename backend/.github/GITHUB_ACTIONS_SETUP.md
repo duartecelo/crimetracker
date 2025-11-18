@@ -1,4 +1,4 @@
-# GitHub Actions - Automação de Testes
+# GitHub Actions - Automação de testes
 
 ## 📚 O que foi configurado?
 
