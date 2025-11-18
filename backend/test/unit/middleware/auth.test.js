@@ -137,3 +137,45 @@ describe('Auth Middleware - authenticateToken', () => {
     expect(req.user).toHaveProperty('exp'); // expiration
   });
 });
+
+describe('Auth Middleware - requireGroupAdmin', () => {
+  const { requireGroupAdmin } = require('../../../middleware/auth');
+  let req, res, next;
+
+  beforeEach(() => {
+    req = {};
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis()
+    };
+    next = jest.fn();
+  });
+
+  test('deve chamar next() (TODO: implementar verificação)', () => {
+    requireGroupAdmin(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+describe('Auth Middleware - requireOwnership', () => {
+  const { requireOwnership } = require('../../../middleware/auth');
+  let req, res, next;
+
+  beforeEach(() => {
+    req = {};
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis()
+    };
+    next = jest.fn();
+  });
+
+  test('deve chamar next() (TODO: implementar verificação)', () => {
+    requireOwnership(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
