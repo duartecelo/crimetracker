@@ -95,6 +95,23 @@ class ReportRepository @Inject constructor(
         }
     }
 
+    suspend fun submitReportFeedback(reportId: String, feedback: String): Resource<Boolean> {
+        return try {
+            val response = apiService.submitReportFeedback(
+                reportId,
+                com.crimetracker.app.data.model.ReportFeedbackRequest(reportId, feedback)
+            )
+            
+            if (response.isSuccessful && response.body() != null) {
+                Resource.Success(true)
+            } else {
+                Resource.Error("Erro ao enviar feedback: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Resource.Error("Erro de conexão: ${e.localizedMessage}")
+        }
+    }
+
     fun getAllReportsFlow(): Flow<List<Report>> {
         return crimeReportDao.getAllReports().map { entities ->
             entities.map { it.toReport() }

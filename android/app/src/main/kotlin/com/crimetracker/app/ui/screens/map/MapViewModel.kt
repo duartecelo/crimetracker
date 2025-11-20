@@ -102,24 +102,45 @@ class MapViewModel @Inject constructor(
 
     fun submitFeedback(reportId: String, feedback: String) {
         viewModelScope.launch {
-            // TODO: Implementar chamada à API quando backend estiver pronto
-            // Por enquanto, apenas atualizar o estado local
+            // Otimistic update
             val updatedReports = _uiState.value.reports.map { report ->
                 if (report.id == reportId) {
                     val currentUseful = report.usefulCount
                     val currentNotUseful = report.notUsefulCount
                     
                     when (feedback) {
-                        "useful" -> report.copy(
-                            usefulCount = if (report.userFeedback != "useful") currentUseful + 1 else currentUseful,
-                            notUsefulCount = if (report.userFeedback == "not_useful") (currentNotUseful - 1).coerceAtLeast(0) else currentNotUseful,
-                            userFeedback = if (report.userFeedback == "useful") null else "useful"
-                        )
-                        "not_useful" -> report.copy(
-                            notUsefulCount = if (report.userFeedback != "not_useful") currentNotUseful + 1 else currentNotUseful,
-                            usefulCount = if (report.userFeedback == "useful") (currentUseful - 1).coerceAtLeast(0) else currentUseful,
-                            userFeedback = if (report.userFeedback == "not_useful") null else "not_useful"
-                        )
+                        "useful" -> {
+                            if (report.userFeedback == "useful") {
+                                // Toggle off
+                                report.copy(
+                                    usefulCount = (currentUseful - 1).coerceAtLeast(0),
+                                    userFeedback = null
+                                )
+                            } else {
+                                // Toggle on (or switch)
+                                report.copy(
+                                    usefulCount = currentUseful + 1,
+                                    notUsefulCount = if (report.userFeedback == "not_useful") (currentNotUseful - 1).coerceAtLeast(0) else currentNotUseful,
+                                    userFeedback = "useful"
+                                )
+                            }
+                        }
+                        "not_useful" -> {
+                            if (report.userFeedback == "not_useful") {
+                                // Toggle off
+                                report.copy(
+                                    notUsefulCount = (currentNotUseful - 1).coerceAtLeast(0),
+                                    userFeedback = null
+                                )
+                            } else {
+                                // Toggle on (or switch)
+                                report.copy(
+                                    notUsefulCount = currentNotUseful + 1,
+                                    usefulCount = if (report.userFeedback == "useful") (currentUseful - 1).coerceAtLeast(0) else currentUseful,
+                                    userFeedback = "not_useful"
+                                )
+                            }
+                        }
                         else -> report
                     }
                 } else {
@@ -136,6 +157,14 @@ class MapViewModel @Inject constructor(
                         selectedReport = updatedReports.find { it.id == reportId }
                     )
                 }
+            }
+
+            // Call API
+            val result = reportRepository.submitReportFeedback(reportId, feedback)
+            if (result is Resource.Error) {
+                // Revert on error (optional, but good practice)
+                // For now just showing error
+                _uiState.value = _uiState.value.copy(error = "Falha ao salvar avaliação: ${result.message}")
             }
         }
     }

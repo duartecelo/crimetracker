@@ -131,5 +131,18 @@ class UserPreferences(private val context: Context) {
             preferences[USER_COLOR_KEY] = color
         }
     }
+
+    // User description
+    private val USER_DESCRIPTION_KEY = stringPreferencesKey("user_description")
+
+    val userDescription: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[USER_DESCRIPTION_KEY]
+    }
+
+    suspend fun setUserDescription(description: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USER_DESCRIPTION_KEY] = description
+        }
+    }
 }
 

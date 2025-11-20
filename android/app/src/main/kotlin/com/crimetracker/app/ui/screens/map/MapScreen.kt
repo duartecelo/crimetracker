@@ -123,12 +123,26 @@ fun MapScreen(
             },
             update = { view ->
                 // Alternar entre mapa normal e satélite
+                // Usar Esri World Imagery para melhor cobertura no Brasil
+                val satelliteSource = object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
+                    "Esri World Imagery",
+                    0, 19, 256, ".jpg",
+                    arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
+                ) {
+                    override fun getTileURLString(pMapTileIndex: Long): String {
+                        return baseUrl + org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) + "/" +
+                                org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "/" +
+                                org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
+                    }
+                }
+
                 val tileSource = if (uiState.isSatelliteMode) {
-                    TileSourceFactory.USGS_SAT
+                    satelliteSource
                 } else {
                     TileSourceFactory.MAPNIK
                 }
-                if (view.tileProvider.tileSource != tileSource) {
+                
+                if (view.tileProvider.tileSource.name() != tileSource.name()) {
                     view.setTileSource(tileSource)
                 }
                 
@@ -141,10 +155,8 @@ fun MapScreen(
                     locationOverlay.enableMyLocation()
                     view.overlays.add(locationOverlay)
                     
-                    view.controller.setCenter(
-                        GeoPoint(uiState.userLocation!!.first, uiState.userLocation!!.second)
-                    )
-                    view.controller.setZoom(15.0)
+                    // Só centralizar automaticamente na primeira vez ou se for solicitado explicitamente
+                    // A lógica de "seguir" deve ser feita via botão, não aqui no update loop constante
                 }
                 
                 // Adicionar marcadores de crimes
@@ -207,6 +219,9 @@ fun MapScreen(
                             val location = LocationHelper.getCurrentLocation(context)
                             location?.let { (lat, lon) ->
                                 viewModel.setUserLocation(lat, lon)
+                                // Forçar centralização direta no mapa
+                                mapViewRef?.controller?.animateTo(GeoPoint(lat, lon))
+                                mapViewRef?.controller?.setZoom(17.0)
                             }
                         }
                     },
