@@ -110,16 +110,38 @@ class MapViewModel @Inject constructor(
                     val currentNotUseful = report.notUsefulCount
                     
                     when (feedback) {
-                        "useful" -> report.copy(
-                            usefulCount = if (report.userFeedback != "useful") currentUseful + 1 else currentUseful,
-                            notUsefulCount = if (report.userFeedback == "not_useful") (currentNotUseful - 1).coerceAtLeast(0) else currentNotUseful,
-                            userFeedback = if (report.userFeedback == "useful") null else "useful"
-                        )
-                        "not_useful" -> report.copy(
-                            notUsefulCount = if (report.userFeedback != "not_useful") currentNotUseful + 1 else currentNotUseful,
-                            usefulCount = if (report.userFeedback == "useful") (currentUseful - 1).coerceAtLeast(0) else currentUseful,
-                            userFeedback = if (report.userFeedback == "not_useful") null else "not_useful"
-                        )
+                        "useful" -> {
+                            if (report.userFeedback == "useful") {
+                                // Toggle off
+                                report.copy(
+                                    usefulCount = (currentUseful - 1).coerceAtLeast(0),
+                                    userFeedback = null
+                                )
+                            } else {
+                                // Toggle on (or switch)
+                                report.copy(
+                                    usefulCount = currentUseful + 1,
+                                    notUsefulCount = if (report.userFeedback == "not_useful") (currentNotUseful - 1).coerceAtLeast(0) else currentNotUseful,
+                                    userFeedback = "useful"
+                                )
+                            }
+                        }
+                        "not_useful" -> {
+                            if (report.userFeedback == "not_useful") {
+                                // Toggle off
+                                report.copy(
+                                    notUsefulCount = (currentNotUseful - 1).coerceAtLeast(0),
+                                    userFeedback = null
+                                )
+                            } else {
+                                // Toggle on (or switch)
+                                report.copy(
+                                    notUsefulCount = currentNotUseful + 1,
+                                    usefulCount = if (report.userFeedback == "useful") (currentUseful - 1).coerceAtLeast(0) else currentUseful,
+                                    userFeedback = "not_useful"
+                                )
+                            }
+                        }
                         else -> report
                     }
                 } else {

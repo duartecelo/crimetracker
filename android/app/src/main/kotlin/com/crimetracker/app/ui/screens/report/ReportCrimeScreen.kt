@@ -38,6 +38,14 @@ fun ReportCrimeScreen(
         "Furto/Roubo de veículo",
         "Outros crimes patrimoniais"
     )
+    
+    // Mapeamento para valores do backend
+    val crimeTypeMap = mapOf(
+        "Roubo/Assalto com violência ou ameaça" to "Roubo",
+        "Furto (sem violência)" to "Furto",
+        "Furto/Roubo de veículo" to "Roubo", // ou criar categoria específica no backend se necessário
+        "Outros crimes patrimoniais" to "Outro"
+    )
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -46,14 +54,16 @@ fun ReportCrimeScreen(
             scope.launch {
                 val location = LocationHelper.getCurrentLocation(context)
                 if (location != null) {
-                    viewModel.createReport(tipo, descricao, location.first, location.second)
+                    val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                    viewModel.createReport(backendTipo, descricao, location.first, location.second)
                 }
             }
         } else {
             scope.launch {
                 snackbarHostState.showSnackbar("Permissão de localização negada. Usando localização padrão.")
                 val location = Pair(-23.5505, -46.6333) // São Paulo
-                viewModel.createReport(tipo, descricao, location.first, location.second)
+                val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                viewModel.createReport(backendTipo, descricao, location.first, location.second)
             }
         }
     }
@@ -183,7 +193,8 @@ fun ReportCrimeScreen(
                         scope.launch {
                             val location = LocationHelper.getCurrentLocation(context)
                             if (location != null) {
-                                viewModel.createReport(tipo, descricao, location.first, location.second)
+                                val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                                viewModel.createReport(backendTipo, descricao, location.first, location.second)
                             }
                         }
                     } else {

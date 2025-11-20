@@ -41,7 +41,7 @@ fun SplashScreen(
         ) {
             // Logo/Isotype central - usando a logo real
             Box(
-                modifier = Modifier.size(140.dp),
+                modifier = Modifier.size(200.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -51,12 +51,6 @@ fun SplashScreen(
                     contentScale = ContentScale.Fit
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "CrimeTracker",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold
-            )
             Spacer(modifier = Modifier.height(32.dp))
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp)

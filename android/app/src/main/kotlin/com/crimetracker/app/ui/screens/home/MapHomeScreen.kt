@@ -24,17 +24,8 @@ fun MapHomeScreen(
 
     Scaffold(
         topBar = {
-            if (selectedTab == 1) {
-                // TopBar apenas para aba Comunidade com botão de voltar
-                TopAppBar(
-                    title = { Text("Comunidade") },
-                    navigationIcon = {
-                        IconButton(onClick = { selectedTab = 0 }) {
-                            Icon(Icons.Default.ArrowBack, "Voltar")
-                        }
-                    }
-                )
-            }
+            // TopBar removida daqui pois cada tela gerencia a sua (ou não precisa)
+            // CommunityScreen já tem sua própria TopAppBar
         },
         bottomBar = {
             NavigationBar {
@@ -74,42 +65,13 @@ fun MapHomeScreen(
             )
             }
             1 -> {
-                // Mostrar placeholder de Comunidade com botão de voltar
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "👥",
-                            style = MaterialTheme.typography.displayLarge
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Comunidade",
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Gerencie seus grupos de vizinhança",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(32.dp))
-                        Button(
-                            onClick = { onNavigateToCommunity() },
-                            modifier = Modifier.padding(horizontal = 32.dp)
-                        ) {
-                            Text("Ver Comunidade")
-                        }
+                // Mostrar tela de Comunidade diretamente
+                com.crimetracker.app.ui.screens.community.CommunityScreen(
+                    onNavigateToCreateGroup = { /* TODO: Implementar navegação interna se necessário ou usar callback */ },
+                    onNavigateToGroup = { groupId ->
+                        // TODO: Navegar para detalhes do grupo
                     }
-                }
+                )
             }
             2 -> {
                 // Mostrar visualização direta do Perfil
