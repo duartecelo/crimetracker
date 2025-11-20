@@ -1,9 +1,11 @@
 package com.crimetracker.app.ui.screens.auth
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
@@ -14,10 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +39,7 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -58,10 +58,12 @@ fun LoginScreen(
                     )
                 )
             )
+            .imePadding() // Add IME padding to the root Box
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState) // Add vertical scroll
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -69,31 +71,27 @@ fun LoginScreen(
             // Logo completo - usando a imagem real
             Box(
                 modifier = Modifier
-                    .size(180.dp)
+                    .size(220.dp)
                     .padding(bottom = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
+                val logo = if (isSystemInDarkTheme()) R.drawable.app_logo_white else R.drawable.app_logo_black
                 Image(
-                    painter = painterResource(id = R.drawable.app_logo),
+                    painter = painterResource(id = logo),
                     contentDescription = "CrimeTracker Logo",
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(12.dp),
                     contentScale = ContentScale.Fit
                 )
             }
-            
-            // Nome do app com estilo moderno
-            Text(
-                text = "CrimeTracker",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center
-            )
-            
+
+            // Removed redundant "CrimeTracker" text
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             Text(
                 text = "Bem-vindo!",
                 style = MaterialTheme.typography.headlineMedium,
@@ -101,18 +99,18 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = "Faça login para continuar",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            
+
             Spacer(modifier = Modifier.height(40.dp))
-            
+
             // Card para o formulário
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -146,7 +144,7 @@ fun LoginScreen(
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                         )
                     )
-                    
+
                     // Campo de Senha com ícone e toggle de visibilidade
                     OutlinedTextField(
                         value = password,
@@ -177,7 +175,7 @@ fun LoginScreen(
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                         )
                     )
-                    
+
                     if (uiState.error != null) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -192,7 +190,7 @@ fun LoginScreen(
                             )
                         }
                     }
-                    
+
                     // Botão de Login moderno
                     Button(
                         onClick = { viewModel.login(email, password) },
@@ -219,9 +217,9 @@ fun LoginScreen(
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     // Link para esqueceu senha
                     TextButton(
                         onClick = onNavigateToForgotPassword,
@@ -235,9 +233,9 @@ fun LoginScreen(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // Link para cadastro
             Row(
                 horizontalArrangement = Arrangement.Center,

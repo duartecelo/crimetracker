@@ -102,8 +102,7 @@ class MapViewModel @Inject constructor(
 
     fun submitFeedback(reportId: String, feedback: String) {
         viewModelScope.launch {
-            // TODO: Implementar chamada à API quando backend estiver pronto
-            // Por enquanto, apenas atualizar o estado local
+            // Otimistic update
             val updatedReports = _uiState.value.reports.map { report ->
                 if (report.id == reportId) {
                     val currentUseful = report.usefulCount
@@ -158,6 +157,14 @@ class MapViewModel @Inject constructor(
                         selectedReport = updatedReports.find { it.id == reportId }
                     )
                 }
+            }
+
+            // Call API
+            val result = reportRepository.submitReportFeedback(reportId, feedback)
+            if (result is Resource.Error) {
+                // Revert on error (optional, but good practice)
+                // For now just showing error
+                _uiState.value = _uiState.value.copy(error = "Falha ao salvar avaliação: ${result.message}")
             }
         }
     }

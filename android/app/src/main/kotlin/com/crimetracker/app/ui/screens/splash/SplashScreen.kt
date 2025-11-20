@@ -1,19 +1,15 @@
 package com.crimetracker.app.ui.screens.splash
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.crimetracker.app.R
@@ -41,13 +37,16 @@ fun SplashScreen(
         ) {
             // Logo/Isotype central - usando a logo real
             Box(
-                modifier = Modifier.size(200.dp),
+                modifier = Modifier.size(220.dp),
                 contentAlignment = Alignment.Center
             ) {
+                val logo = if (isSystemInDarkTheme()) R.drawable.app_logo_white else R.drawable.app_logo_black
                 Image(
-                    painter = painterResource(id = R.drawable.app_logo),
+                    painter = painterResource(id = logo),
                     contentDescription = "CrimeTracker Logo",
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
                     contentScale = ContentScale.Fit
                 )
             }
@@ -58,4 +57,3 @@ fun SplashScreen(
         }
     }
 }
-

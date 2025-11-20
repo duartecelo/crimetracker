@@ -48,12 +48,14 @@ class ProfileViewModel @Inject constructor(
             val username = userPreferences.username.first() ?: ""
             val email = userPreferences.email.first() ?: ""
             val nickname = userPreferences.userNickname.first() ?: ""
+            val description = userPreferences.userDescription.first() ?: ""
             val userColor = userPreferences.userColor.first() ?: "#1E3A8A"
             
             _uiState.value = _uiState.value.copy(
                 username = username,
                 email = email,
                 nickname = nickname.ifEmpty { username },
+                description = description,
                 userColor = userColor
             )
         }
@@ -93,7 +95,9 @@ class ProfileViewModel @Inject constructor(
 
     fun updateDescription(description: String) {
         _uiState.value = _uiState.value.copy(description = description)
-        // TODO: Salvar descrição no backend quando endpoint estiver disponível
+        viewModelScope.launch {
+            userPreferences.setUserDescription(description)
+        }
     }
 
     fun updateUserColor(color: String) {
