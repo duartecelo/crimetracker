@@ -1,12 +1,17 @@
 package com.crimetracker.app.ui.screens.group
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -19,18 +24,12 @@ fun CreateGroupScreen(
 ) {
     var nome by remember { mutableStateOf("") }
     var descricao by remember { mutableStateOf("") }
-    
+    var selectedCoverUrl by remember { mutableStateOf<String?>(null) }
+
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Mostrar mensagens
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
-        }
-    }
-
+    // Success handling
     LaunchedEffect(uiState.successMessage) {
         uiState.successMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -39,10 +38,18 @@ fun CreateGroupScreen(
         }
     }
 
+    // Error handling
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Criar Grupo") },
+                title = { Text("Criar Nova Comunidade") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Voltar")
@@ -56,111 +63,84 @@ fun CreateGroupScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Nome do Grupo",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            OutlinedTextField(
-                value = nome,
-                onValueChange = { nome = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Ex: Bairro Centro") },
-                singleLine = true,
-                enabled = !uiState.isLoading
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Descrição (opcional)",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            OutlinedTextField(
-                value = descricao,
-                onValueChange = { descricao = it },
+            // Cover selection (simulated via URL input)
+            Card(
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp),
-                placeholder = { Text("Descreva o objetivo do grupo...") },
-                enabled = !uiState.isLoading
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Capa do Grupo",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            var selectedCover by remember { mutableStateOf<String?>(null) }
-            val presets = listOf(
-                "https://images.unsplash.com/photo-1518005052357-e9847508d571?auto=format&fit=crop&w=500&q=60", // City
-                "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=500&q=60", // Urban
-                "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=500&q=60", // Building
-                "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=500&q=60"  // Street
-            )
-
-            // Presets
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .height(150.dp)
             ) {
-                presets.forEach { url ->
-                    Card(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .weight(1f),
-                        border = if (selectedCover == url) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                        onClick = { selectedCover = url }
-                    ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (selectedCoverUrl != null) {
                         AsyncImage(
-                            model = url,
-                            contentDescription = null,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            model = selectedCoverUrl,
+                            contentDescription = "Capa",
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Image, null, modifier = Modifier.size(48.dp))
+                                Text("Adicionar Foto de Capa")
+                            }
+                        }
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
+
+            // URL input for cover image
             OutlinedTextField(
-                value = selectedCover ?: "",
-                onValueChange = { selectedCover = it },
+                value = selectedCoverUrl ?: "",
+                onValueChange = { selectedCoverUrl = it },
+                label = { Text("URL da Imagem de Capa") },
+                placeholder = { Text("http://...") },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Ou cole uma URL de imagem...") },
-                singleLine = true,
-                enabled = !uiState.isLoading,
-                label = { Text("URL da Capa") }
+                singleLine = true
             )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Button(
-                onClick = {
-                    viewModel.createGroup(nome, descricao.ifBlank { null }, selectedCover)
-                },
+
+            // Group name
+            OutlinedTextField(
+                value = nome,
+                onValueChange = { if (it.length <= 50) nome = it },
+                label = { Text("Nome da Comunidade") },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading && nome.isNotBlank()
+                singleLine = true,
+                supportingText = { Text("${nome.length}/50") }
+            )
+
+            // Description
+            OutlinedTextField(
+                value = descricao,
+                onValueChange = { if (it.length <= 300) descricao = it },
+                label = { Text("Descrição") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                supportingText = { Text("${descricao.length}/300") }
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = { viewModel.createGroup(nome, descricao, selectedCoverUrl) },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                enabled = nome.isNotBlank() && !uiState.isLoading
             ) {
                 if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Criar Grupo")
+                    Text("Criar Comunidade")
                 }
             }
         }
     }
 }
-

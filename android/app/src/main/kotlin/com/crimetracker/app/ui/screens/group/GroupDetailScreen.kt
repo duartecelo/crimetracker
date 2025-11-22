@@ -1,22 +1,23 @@
 package com.crimetracker.app.ui.screens.group
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.FilterListOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.crimetracker.app.ui.components.PostCard
-import com.crimetracker.app.ui.components.CreatePostDialog
 import coil.compose.AsyncImage
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,13 +29,6 @@ fun GroupDetailScreen(
     var showCreatePostDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
-        }
-    }
-
     LaunchedEffect(uiState.successMessage) {
         uiState.successMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -45,16 +39,19 @@ fun GroupDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(uiState.group?.nome ?: "Carregando...") },
+                title = { Text(uiState.group?.nome ?: "A carregar...") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, "Voltar")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.toggleImportantFilter() }) {
+                    IconToggleButton(
+                        checked = uiState.isImportantFilterActive,
+                        onCheckedChange = { viewModel.toggleImportantFilter() }
+                    ) {
                         Icon(
-                            imageVector = if (uiState.isImportantFilterActive) Icons.Default.FilterListOff else Icons.Default.FilterList,
+                            imageVector = if (uiState.isImportantFilterActive) Icons.Default.Star else Icons.Default.StarBorder,
                             contentDescription = "Filtrar Importantes",
                             tint = if (uiState.isImportantFilterActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
@@ -64,8 +61,11 @@ fun GroupDetailScreen(
         },
         floatingActionButton = {
             if (uiState.isMember) {
-                FloatingActionButton(onClick = { showCreatePostDialog = true }) {
-                    Icon(Icons.Default.Add, "Novo Post")
+                FloatingActionButton(
+                    onClick = { showCreatePostDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Default.Edit, "Novo Post")
                 }
             }
         },
@@ -73,65 +73,87 @@ fun GroupDetailScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             
-            // Header com Capa
-            uiState.group?.coverUrl?.let { coverUrl ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+            ) {
+                AsyncImage(
+                    model = uiState.group?.coverUrl ?: "https://via.placeholder.com/500",
+                    contentDescription = "Capa",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                            )
+                        )
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
                 ) {
-                    AsyncImage(
-                        model = coverUrl,
-                        contentDescription = "Capa do Grupo",
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                    Text(
+                        text = uiState.group?.nome ?: "",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
                     )
-                    // Gradiente para texto legível se necessário
+                    Text(
+                        text = uiState.group?.descricao ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.9f),
+                        maxLines = 2
+                    )
+                    Text(
+                        text = "${uiState.group?.memberCount ?: 0} membros",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
                 }
             }
 
-            // Banner de Preview / Botão de Entrar
             if (!uiState.isMember && !uiState.isLoading) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Você está em modo de visualização",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            "Pré-visualização", 
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Entre no grupo para interagir e postar.",
-                            style = MaterialTheme.typography.bodyMedium
+                            "Entre na comunidade para interagir, postar fotos e vídeos.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = { viewModel.joinGroup() },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Entrar no Grupo")
+                            Text("Entrar na Comunidade")
                         }
                     }
                 }
             }
 
-            // Lista de Posts
             if (uiState.isLoading && uiState.posts.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
-                }
-            } else if (uiState.filteredPosts.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    Text("Nenhum post encontrado.")
                 }
             } else {
                 LazyColumn(
@@ -139,20 +161,27 @@ fun GroupDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(uiState.filteredPosts) { post ->
-                        PostCard(
-                            post = post,
-                            onLikeClick = { 
-                                if (uiState.isMember) viewModel.likePost(post.id) 
-                                else { /* Mostrar snackbar pedindo pra entrar */ }
-                            },
-                            onDislikeClick = { 
-                                if (uiState.isMember) viewModel.dislikePost(post.id)
-                                else { /* Mostrar snackbar */ }
-                            },
-                            onCommentClick = { /* TODO */ },
-                            onShareClick = { /* TODO */ }
-                        )
+                    val postsToShow = uiState.filteredPosts
+                    
+                    if (postsToShow.isEmpty()) {
+                        item {
+                            Text(
+                                "Ainda não há publicações.",
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        items(postsToShow) { post ->
+                            PostCard(
+                                post = post,
+                                onLikeClick = { if(uiState.isMember) viewModel.likePost(post.id) },
+                                onDislikeClick = { if(uiState.isMember) viewModel.dislikePost(post.id) },
+                                onCommentClick = { },
+                                onShareClick = { }
+                            )
+                        }
                     }
                 }
             }
@@ -184,7 +213,7 @@ fun SimpleCreatePostDialog(
             OutlinedTextField(
                 value = content,
                 onValueChange = { content = it },
-                label = { Text("O que está acontecendo?") },
+                label = { Text("O que está a acontecer?") },
                 modifier = Modifier.fillMaxWidth().height(150.dp),
                 maxLines = 5
             )

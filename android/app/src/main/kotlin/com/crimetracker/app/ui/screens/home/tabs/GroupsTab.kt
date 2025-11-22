@@ -1,6 +1,6 @@
 package com.crimetracker.app.ui.screens.home.tabs
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.crimetracker.app.ui.screens.community.CommunityScreen
 
@@ -10,9 +10,9 @@ fun GroupsTab(
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToGroup: (String) -> Unit = {}
 ) {
-    // Render the full CommunityScreen
     CommunityScreen(
         onNavigateToCreateGroup = onNavigateToCreateGroup,
-        onNavigateToGroup = onNavigateToGroup
+        onNavigateToGroup = onNavigateToGroup,
+        modifier = modifier
     )
 }
