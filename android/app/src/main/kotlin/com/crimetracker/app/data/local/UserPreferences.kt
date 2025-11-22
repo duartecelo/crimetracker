@@ -23,6 +23,7 @@ class UserPreferences(private val context: Context) {
         private val ANONYMOUS_MODE_DEFAULT_KEY = booleanPreferencesKey("anonymous_mode_default")
         private val NOTIFICATION_RADIUS_KEY = stringPreferencesKey("notification_radius") // em km
         private val MAP_TYPE_KEY = stringPreferencesKey("map_type") // "standard", "satellite"
+        private val AUTO_DAY_NIGHT_MODE_KEY = booleanPreferencesKey("auto_day_night_mode")
         private val USER_NICKNAME_KEY = stringPreferencesKey("user_nickname")
         private val USER_COLOR_KEY = stringPreferencesKey("user_color") // cor de destaque
     }
@@ -107,6 +108,17 @@ class UserPreferences(private val context: Context) {
     suspend fun setMapType(type: String) {
         context.dataStore.edit { preferences ->
             preferences[MAP_TYPE_KEY] = type
+        }
+    }
+    
+    // Auto day/night mode
+    val autoDayNightMode: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AUTO_DAY_NIGHT_MODE_KEY] ?: true
+    }
+
+    suspend fun setAutoDayNightMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_DAY_NIGHT_MODE_KEY] = enabled
         }
     }
 

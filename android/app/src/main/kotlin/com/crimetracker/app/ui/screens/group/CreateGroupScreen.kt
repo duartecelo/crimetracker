@@ -1,6 +1,7 @@
 package com.crimetracker.app.ui.screens.group
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -8,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,11 +91,62 @@ fun CreateGroupScreen(
                 enabled = !uiState.isLoading
             )
             
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Capa do Grupo",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            var selectedCover by remember { mutableStateOf<String?>(null) }
+            val presets = listOf(
+                "https://images.unsplash.com/photo-1518005052357-e9847508d571?auto=format&fit=crop&w=500&q=60", // City
+                "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=500&q=60", // Urban
+                "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=500&q=60", // Building
+                "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=500&q=60"  // Street
+            )
+
+            // Presets
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                presets.forEach { url ->
+                    Card(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .weight(1f),
+                        border = if (selectedCover == url) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                        onClick = { selectedCover = url }
+                    ) {
+                        AsyncImage(
+                            model = url,
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            OutlinedTextField(
+                value = selectedCover ?: "",
+                onValueChange = { selectedCover = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Ou cole uma URL de imagem...") },
+                singleLine = true,
+                enabled = !uiState.isLoading,
+                label = { Text("URL da Capa") }
+            )
+            
             Spacer(modifier = Modifier.height(24.dp))
             
             Button(
                 onClick = {
-                    viewModel.createGroup(nome, descricao.ifBlank { null })
+                    viewModel.createGroup(nome, descricao.ifBlank { null }, selectedCover)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading && nome.isNotBlank()

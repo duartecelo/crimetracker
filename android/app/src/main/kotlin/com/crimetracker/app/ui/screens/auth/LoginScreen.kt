@@ -58,6 +58,7 @@ fun LoginScreen(
                     )
                 )
             )
+            .systemBarsPadding()
             .imePadding() // Add IME padding to the root Box
     ) {
         Column(

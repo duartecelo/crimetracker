@@ -4,10 +4,14 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -25,6 +29,11 @@ fun ReportCrimeScreen(
     var descricao by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
     var isAnonymous by remember { mutableStateOf(false) }
+    var useCurrentLocation by remember { mutableStateOf(true) }
+    var manualLatitude by remember { mutableStateOf(0.0) }
+    var manualLongitude by remember { mutableStateOf(0.0) }
+    var currentLatitude by remember { mutableStateOf<Double?>(null) }
+    var currentLongitude by remember { mutableStateOf<Double?>(null) }
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -47,6 +56,19 @@ fun ReportCrimeScreen(
         "Outros crimes patrimoniais" to "Outro"
     )
 
+    // Carregar localização atual ao abrir a tela
+    LaunchedEffect(Unit) {
+        if (LocationHelper.hasLocationPermission(context)) {
+            val location = LocationHelper.getCurrentLocation(context)
+            if (location != null) {
+                currentLatitude = location.first
+                currentLongitude = location.second
+                manualLatitude = location.first
+                manualLongitude = location.second
+            }
+        }
+    }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -54,16 +76,17 @@ fun ReportCrimeScreen(
             scope.launch {
                 val location = LocationHelper.getCurrentLocation(context)
                 if (location != null) {
-                    val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                    viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                    currentLatitude = location.first
+                    currentLongitude = location.second
+                    if (useCurrentLocation) {
+                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                        viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                    }
                 }
             }
         } else {
             scope.launch {
-                snackbarHostState.showSnackbar("Permissão de localização negada. Usando localização padrão.")
-                val location = Pair(-23.5505, -46.6333) // São Paulo
-                val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                snackbarHostState.showSnackbar("Permissão de localização negada.")
             }
         }
     }
@@ -185,20 +208,96 @@ fun ReportCrimeScreen(
                 )
             }
             
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Seção de Localização
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (useCurrentLocation) Icons.Default.MyLocation else Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Column {
+                                Text(
+                                    text = if (useCurrentLocation) "Localização Atual" else "Posição Manual",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                val lat = if (useCurrentLocation) currentLatitude else manualLatitude
+                                val lon = if (useCurrentLocation) currentLongitude else manualLongitude
+                                if (lat != null && lon != null) {
+                                    Text(
+                                        text = "${String.format("%.4f", lat)}, ${String.format("%.4f", lon)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                        Switch(
+                            checked = !useCurrentLocation,
+                            onCheckedChange = { useCurrentLocation = !it }
+                        )
+                    }
+                    
+                    if (!useCurrentLocation) {
+                        HorizontalDivider()
+                        Text(
+                            text = "💡 Dica: Posicione o marcador no mapa principal antes de criar a denúncia",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            
             Spacer(modifier = Modifier.height(24.dp))
             
             Button(
                 onClick = {
-                    if (LocationHelper.hasLocationPermission(context)) {
-                        scope.launch {
-                            val location = LocationHelper.getCurrentLocation(context)
-                            if (location != null) {
-                                val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                                viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                    val lat: Double
+                    val lon: Double
+                    
+                    if (useCurrentLocation) {
+                        if (currentLatitude != null && currentLongitude != null) {
+                            lat = currentLatitude!!
+                            lon = currentLongitude!!
+                            val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                            viewModel.createReport(backendTipo, descricao, lat, lon)
+                        } else if (LocationHelper.hasLocationPermission(context)) {
+                            scope.launch {
+                                val location = LocationHelper.getCurrentLocation(context)
+                                if (location != null) {
+                                    val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                                    viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                                }
                             }
+                        } else {
+                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                         }
                     } else {
-                        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        // Usar posição manual (do mapa)
+                        lat = manualLatitude
+                        lon = manualLongitude
+                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                        viewModel.createReport(backendTipo, descricao, lat, lon)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),

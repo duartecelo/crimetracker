@@ -13,6 +13,14 @@ data class PostEntity(
     val createdAt: String,
     val authorUsername: String,
     val groupName: String?,
+    val likeCount: Int = 0,
+    val commentCount: Int = 0,
+    val isLiked: Boolean = false,
+    val isImportant: Boolean = false,
+    val mediaUrl: String? = null,
+    val mediaType: String? = null,
+    val dislikeCount: Int = 0,
+    val isDisliked: Boolean = false,
     val lastSync: Long = System.currentTimeMillis()
 )
 

@@ -32,7 +32,7 @@ class GroupViewModel @Inject constructor(
         loadMyGroups()
     }
 
-    fun createGroup(nome: String, descricao: String?) {
+    fun createGroup(nome: String, descricao: String?, coverUrl: String? = null) {
         if (nome.isBlank()) {
             _uiState.value = _uiState.value.copy(error = "Nome do grupo é obrigatório")
             return
@@ -41,7 +41,7 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            when (val result = groupRepository.createGroup(nome, descricao)) {
+            when (val result = groupRepository.createGroup(nome, descricao, coverUrl)) {
                 is Resource.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,

@@ -28,7 +28,10 @@ fun Report.toEntity() = CrimeReportEntity(
     createdAt = createdAt,
     authorUsername = authorUsername,
     distanceMeters = distanceMeters,
-    distanceKm = distanceKm
+    distanceKm = distanceKm,
+    usefulCount = usefulCount,
+    notUsefulCount = notUsefulCount,
+    userFeedback = userFeedback
 )
 
 fun CrimeReportEntity.toReport() = Report(
@@ -40,7 +43,10 @@ fun CrimeReportEntity.toReport() = Report(
     createdAt = createdAt,
     authorUsername = authorUsername,
     distanceMeters = distanceMeters,
-    distanceKm = distanceKm
+    distanceKm = distanceKm,
+    usefulCount = usefulCount,
+    notUsefulCount = notUsefulCount,
+    userFeedback = userFeedback
 )
 
 // Group mappers
@@ -71,7 +77,15 @@ fun Post.toEntity() = PostEntity(
     conteudo = conteudo,
     createdAt = createdAt,
     authorUsername = authorUsername,
-    groupName = groupName
+    groupName = groupName,
+    likeCount = likeCount,
+    commentCount = commentCount,
+    isLiked = isLiked,
+    isImportant = isImportant,
+    mediaUrl = mediaUrl,
+    mediaType = mediaType,
+    dislikeCount = dislikeCount,
+    isDisliked = isDisliked
 )
 
 fun PostEntity.toPost() = Post(
@@ -81,6 +95,14 @@ fun PostEntity.toPost() = Post(
     conteudo = conteudo,
     createdAt = createdAt,
     authorUsername = authorUsername,
-    groupName = groupName
+    groupName = groupName,
+    likeCount = likeCount,
+    commentCount = commentCount,
+    isLiked = isLiked,
+    isImportant = isImportant,
+    mediaUrl = mediaUrl,
+    mediaType = mediaType,
+    dislikeCount = dislikeCount,
+    isDisliked = isDisliked
 )
 

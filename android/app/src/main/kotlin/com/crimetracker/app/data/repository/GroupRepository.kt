@@ -18,9 +18,9 @@ class GroupRepository @Inject constructor(
     private val groupDao: GroupDao
 ) {
 
-    suspend fun createGroup(nome: String, descricao: String?): Resource<Group> {
+    suspend fun createGroup(nome: String, descricao: String?, coverUrl: String? = null): Resource<Group> {
         return try {
-            val response = apiService.createGroup(CreateGroupRequest(nome, descricao))
+            val response = apiService.createGroup(CreateGroupRequest(nome, descricao, coverUrl))
             
             if (response.isSuccessful && response.body() != null) {
                 val group = response.body()!!.data

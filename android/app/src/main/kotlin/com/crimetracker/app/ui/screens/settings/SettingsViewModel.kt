@@ -28,6 +28,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _mapType = MutableStateFlow("standard")
     val mapType: StateFlow<String> = _mapType.asStateFlow()
+    
+    private val _autoDayNightMode = MutableStateFlow(true)
+    val autoDayNightMode: StateFlow<Boolean> = _autoDayNightMode.asStateFlow()
 
     init {
         loadPreferences()
@@ -53,6 +56,10 @@ class SettingsViewModel @Inject constructor(
             
             userPreferences.mapType.first()?.let {
                 _mapType.value = it
+            }
+            
+            userPreferences.autoDayNightMode.first().let {
+                _autoDayNightMode.value = it
             }
         }
     }
@@ -88,6 +95,13 @@ class SettingsViewModel @Inject constructor(
         _mapType.value = type
         viewModelScope.launch {
             userPreferences.setMapType(type)
+        }
+    }
+    
+    fun setAutoDayNightMode(enabled: Boolean) {
+        _autoDayNightMode.value = enabled
+        viewModelScope.launch {
+            userPreferences.setAutoDayNightMode(enabled)
         }
     }
 }

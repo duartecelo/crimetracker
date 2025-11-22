@@ -12,7 +12,7 @@ import com.crimetracker.app.data.local.entity.*
         GroupEntity::class,
         PostEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class CrimeTrackerDatabase : RoomDatabase() {
