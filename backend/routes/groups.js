@@ -6,6 +6,36 @@ const express = require('express');
 const { body, query, param, validationResult } = require('express-validator');
 const groupService = require('../services/groupService');
 const { authenticateToken } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configurar Multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/groups');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'group-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas'));
+    }
+  }
+});
 
 const router = express.Router();
 
@@ -15,6 +45,13 @@ const router = express.Router();
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    // Se houve upload, deletar o arquivo
+    if (req.file) {
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error('Erro ao deletar arquivo após falha de validação:', err);
+        });
+    }
+
     return res.status(400).json({
       success: false,
       message: 'Erro de validação',
@@ -32,12 +69,13 @@ const validate = (req, res, next) => {
  * Cria grupo e adiciona criador automaticamente
  * 
  * Headers: Authorization: Bearer <token>
- * Body: { nome, descricao }
+ * Body: { nome, descricao } (Multipart/form-data)
  * Response: { success: true, data: {...} }
  */
 router.post(
   '/',
   authenticateToken,
+  upload.single('imagem'),
   [
     body('nome')
       .trim()
@@ -55,8 +93,9 @@ router.post(
     try {
       const userId = req.user.user_id;
       const { nome, descricao } = req.body;
+      const imagem = req.file ? `/uploads/groups/${req.file.filename}` : null;
 
-      const group = await groupService.createGroup(userId, nome, descricao);
+      const group = await groupService.createGroup(userId, nome, descricao, imagem);
 
       res.status(201).json({
         success: true,
@@ -65,6 +104,13 @@ router.post(
 
     } catch (error) {
       console.error('❌ Erro ao criar grupo:', error.message);
+
+      // Se houve upload, deletar o arquivo em caso de erro no serviço
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error('Erro ao deletar arquivo após erro no serviço:', err);
+        });
+      }
 
       const statusCode = error.message.includes('já existe') ? 409 :
                          error.message.includes('obrigatório') ||
@@ -139,8 +185,9 @@ router.get(
   async (req, res) => {
     try {
       const groupId = req.params.id;
+      const userId = req.user.user_id;
 
-      const group = await groupService.getGroupById(groupId);
+      const group = await groupService.getGroupById(groupId, userId);
 
       res.json({
         success: true,

@@ -21,17 +21,18 @@ import com.crimetracker.app.ui.screens.report.ReportCrimeScreen
 // import com.crimetracker.app.ui.screens.splash.SplashScreen // File doesn't exist
 import com.crimetracker.app.ui.screens.community.CommunityScreen
 
+import com.crimetracker.app.ui.screens.splash.SplashScreen
+
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Login.route // Changed from Splash to Login
+    startDestination: String = Screen.Splash.route
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // Splash - Commented out as SplashScreen doesn't exist
-        /*
+        // Splash
         composable(Screen.Splash.route) {
             SplashScreen(
                 onNavigateToLogin = {
@@ -46,7 +47,6 @@ fun NavGraph(
                 }
             )
         }
-        */
 
 
         // Auth
