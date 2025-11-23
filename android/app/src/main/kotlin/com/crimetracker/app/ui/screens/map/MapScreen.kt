@@ -2,6 +2,11 @@ package com.crimetracker.app.ui.screens.map
 
 import android.Manifest
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -11,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -39,6 +45,7 @@ fun MapScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
     var showAbuseDialog by remember { mutableStateOf(false) }
     var mapViewRef: MapView? by remember { mutableStateOf(null) }
 
@@ -102,6 +109,56 @@ fun MapScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var mapView: MapView? by remember { mutableStateOf(null) }
     
+    // Helper function to create Waze-like balloon marker
+    fun createBalloonBitmap(text: String, color: Int): Bitmap {
+        // Convert dp to px for consistency across devices
+        val widthPx = with(density) { 56.dp.toPx() }.toInt()
+        val heightPx = with(density) { 64.dp.toPx() }.toInt()
+
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint().apply {
+            this.color = color
+            style = Paint.Style.FILL
+            isAntiAlias = true
+            setShadowLayer(5f, 2f, 2f, 0xAA000000.toInt())
+        }
+
+        // Draw Bubble
+        val rect = RectF(5f, 5f, widthPx - 5f, heightPx - 15f)
+        val cornerRadius = with(density) { 16.dp.toPx() }
+        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint)
+
+        // Draw Triangle pointer
+        val path = android.graphics.Path()
+        val triangleWidth = with(density) { 12.dp.toPx() }
+        val triangleHeight = with(density) { 12.dp.toPx() }
+
+        path.moveTo(widthPx / 2f - triangleWidth / 2, heightPx - 15f)
+        path.lineTo(widthPx / 2f + triangleWidth / 2, heightPx - 15f)
+        path.lineTo(widthPx / 2f, heightPx - 2f)
+        path.close()
+        canvas.drawPath(path, paint)
+
+        // Draw Text/Icon
+        val textPaint = Paint().apply {
+            this.color = android.graphics.Color.WHITE
+            this.textSize = with(density) { 20.sp.toPx() }
+            this.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+        }
+
+        // Centralizar texto
+        val xPos = widthPx / 2f
+        val yPos = (rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2)
+
+        // Simplificar o texto (apenas primeira letra ou ícone)
+        val shortText = text.take(1).uppercase()
+        canvas.drawText(shortText, xPos, yPos, textPaint)
+
+        return bitmap
+    }
+
     // Gerenciar ciclo de vida do MapView
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -245,6 +302,20 @@ fun MapScreen(
                         title = report.tipo
                         snippet = report.descricao.take(100)
                         
+                        // Define color based on report type
+                        val color = when (report.tipo.lowercase()) {
+                            "assalto", "roubo" -> android.graphics.Color.RED
+                            "furto" -> 0xFFFFA500.toInt() // Orange
+                            "agressão" -> 0xFF8B0000.toInt() // Dark Red
+                            else -> 0xFF555555.toInt() // Grey
+                        }
+
+                        // Use custom icon
+                        icon = android.graphics.drawable.BitmapDrawable(
+                            context.resources,
+                            createBalloonBitmap(report.tipo, color)
+                        )
+
                         setOnMarkerClickListener { _, _ ->
                             viewModel.selectReport(report)
                             onReportClick(report)

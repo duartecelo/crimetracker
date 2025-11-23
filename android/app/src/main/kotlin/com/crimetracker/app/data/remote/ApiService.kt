@@ -49,8 +49,13 @@ interface ApiService {
     ): Response<MessageResponse>
     
     // GROUPS
+    @Multipart
     @POST("api/groups")
-    suspend fun createGroup(@Body request: CreateGroupRequest): Response<GroupResponse>
+    suspend fun createGroup(
+        @Part("nome") nome: okhttp3.RequestBody,
+        @Part("descricao") descricao: okhttp3.RequestBody?,
+        @Part imagem: okhttp3.MultipartBody.Part?
+    ): Response<GroupResponse>
     
     @GET("api/groups")
     suspend fun getGroups(@Query("search") search: String? = null): Response<GroupsListResponse>

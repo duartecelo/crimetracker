@@ -131,9 +131,11 @@ data class Group(
     val nome: String,
     val descricao: String? = null,
     @SerializedName("cover_url") val coverUrl: String? = null,
+    @SerializedName("imagem") val imagem: String? = null,
     @SerializedName("criador_username") val criadorUsername: String? = null,
     @SerializedName("member_count") val memberCount: Int,
-    @SerializedName("created_at") val createdAt: String
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("is_member") val isMember: Boolean = false
 )
 
 data class GroupMembersResponse(
