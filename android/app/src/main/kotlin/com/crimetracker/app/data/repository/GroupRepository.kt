@@ -72,7 +72,7 @@ class GroupRepository @Inject constructor(
 
                 // Try to get from cache
                 val cachedGroups = getCachedGroupsFlow(search).firstOrNull() ?: emptyList()
-                Resource.Error(errorMsg, cachedGroups)
+                Resource.Error(errorMsg, data = cachedGroups)
             }
         } catch (e: Exception) {
             // Return cache on network error
@@ -81,7 +81,7 @@ class GroupRepository @Inject constructor(
             } catch (ex: Exception) {
                 emptyList()
             }
-            Resource.Error("Erro de conexão: ${e.localizedMessage}", cachedGroups)
+            Resource.Error("Erro de conexão: ${e.localizedMessage}", data = cachedGroups)
         }
     }
 

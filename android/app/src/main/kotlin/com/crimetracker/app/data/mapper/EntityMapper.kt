@@ -50,7 +50,8 @@ fun CrimeReportEntity.toReport() = Report(
 )
 
 // Group mappers
-fun Group.toEntity(isMember: Boolean = false) = GroupEntity(
+// Group mappers
+fun Group.toEntity(isMember: Boolean = this.isMember) = GroupEntity(
     id = id,
     nome = nome,
     descricao = descricao,
@@ -66,7 +67,8 @@ fun GroupEntity.toGroup() = Group(
     descricao = descricao,
     criadorUsername = criadorUsername,
     memberCount = memberCount,
-    createdAt = createdAt
+    createdAt = createdAt,
+    isMember = isMember
 )
 
 // Post mappers

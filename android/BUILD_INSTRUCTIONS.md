@@ -186,7 +186,7 @@ ifconfig
 3. Altere o `BASE_URL` em `app/build.gradle.kts`:
 
 ```kotlin
-buildConfigField("String", "BASE_URL", "\"http://192.168.1.10:3000/\"")
+buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000/\"")
 ```
 
 (Substitua `192.168.1.10` pelo IP do seu computador)
