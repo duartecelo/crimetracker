@@ -119,5 +119,12 @@ class SettingsViewModel @Inject constructor(
             userPreferences.setMapTheme(theme)
         }
     }
+
+    fun signOut(onSignOut: () -> Unit) {
+        viewModelScope.launch {
+            userPreferences.clearAuthData()
+            onSignOut()
+        }
+    }
 }
 

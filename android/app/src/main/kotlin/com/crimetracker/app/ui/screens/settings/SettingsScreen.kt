@@ -3,6 +3,9 @@ package com.crimetracker.app.ui.screens.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +20,7 @@ import com.crimetracker.app.ui.theme.ThemeMode
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onSignOut: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
@@ -42,7 +46,8 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Seção de Tema Unificado (App + Mapa)
@@ -266,32 +271,25 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    
-                    // Auto Dia/Noite
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Modo Dia/Noite Automático",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = "Alterna entre dia (6h-18h) e noite (18h-6h)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = autoDayNightMode,
-                            onCheckedChange = { viewModel.setAutoDayNightMode(it) }
-                        )
-                    }
                 }
+            }
+
+            // Botão de Sair
+            Button(
+                onClick = { viewModel.signOut(onSignOut) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) {
+                Icon(
+                    Icons.Default.ExitToApp,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Sair da conta")
             }
         }
     }

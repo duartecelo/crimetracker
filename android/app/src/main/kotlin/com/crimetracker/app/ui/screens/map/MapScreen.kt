@@ -12,10 +12,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -31,6 +35,8 @@ import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.data.model.Report
 import com.crimetracker.app.ui.components.ReportFeedbackSection
 import com.crimetracker.app.ui.components.ReportAbuseDialog
+import com.crimetracker.app.ui.components.getCrimeTypeColor
+import com.crimetracker.app.ui.components.getCrimeTypeColorInt
 import com.crimetracker.app.util.LocationHelper
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -129,6 +135,8 @@ fun MapScreen(
     }
 
     // Carregar localização inicial
+    var hasCentered by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         if (LocationHelper.hasLocationPermission(context)) {
             val location = LocationHelper.getCurrentLocation(context)
@@ -138,6 +146,16 @@ fun MapScreen(
             }
         } else {
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    // Centralizar mapa quando a localização for obtida pela primeira vez nesta sessão
+    LaunchedEffect(uiState.userLocation, mapViewRef) {
+        if (!hasCentered && uiState.userLocation != null && mapViewRef != null) {
+            val (lat, lon) = uiState.userLocation!!
+            mapViewRef?.controller?.animateTo(GeoPoint(lat, lon))
+            mapViewRef?.controller?.setZoom(17.0)
+            hasCentered = true
         }
     }
 
@@ -228,10 +246,14 @@ fun MapScreen(
                     setMultiTouchControls(true)
                     setBuiltInZoomControls(false) // Desabilitar botões padrão do OSMDroid
                     
-                    // Localização inicial (São Paulo)
-                    val initialLocation = GeoPoint(-23.5505, -46.6333)
+                    // Localização inicial (Usuário ou SP)
+                    val initialLocation = if (uiState.userLocation != null) {
+                        GeoPoint(uiState.userLocation!!.first, uiState.userLocation!!.second)
+                    } else {
+                        GeoPoint(-23.5505, -46.6333)
+                    }
                     controller.setCenter(initialLocation)
-                    controller.setZoom(15.0)
+                    controller.setZoom(17.0)
                     
                     mapView = this
                     mapViewRef = this
@@ -347,7 +369,9 @@ fun MapScreen(
                     view.overlays.add(pulseOverlay)
                 }
                 
-                // Adicionar marcadores de crimes com visual moderno
+                // Limpar TODOS os marcadores antigos antes de adicionar os novos
+                view.overlays.removeIf { it is org.osmdroid.views.overlay.Marker }
+
                 // Adicionar marcadores de crimes com visual moderno
                 val usedLocations = mutableListOf<GeoPoint>()
                 
@@ -372,69 +396,21 @@ fun MapScreen(
                     val marker = org.osmdroid.views.overlay.Marker(view).apply {
                         position = point
                         title = report.tipo
-                        snippet = report.descricao.take(100)
-                        
-                        // Define color and symbol based on report type (unique for each subtype)
-                        val (color, symbol) = when {
-                            // Homicídio - Preto
-                            report.tipo.contains("Homicídio", ignoreCase = true) || 
-                            report.tipo.contains("tentativa", ignoreCase = true) -> 
-                                Pair(0xFF000000.toInt(), "H")
-                            
-                            // Sequestro - Roxo escuro
-                            report.tipo.contains("Sequestro", ignoreCase = true) || 
-                            report.tipo.contains("cárcere", ignoreCase = true) -> 
-                                Pair(0xFF6A1B9A.toInt(), "S")
-                            
-                            // Furto de veículo - Laranja escuro
-                            report.tipo.contains("veículo", ignoreCase = true) && 
-                            report.tipo.contains("Furto", ignoreCase = true) -> 
-                                Pair(0xFFEF6C00.toInt(), "🚗")
-                            
-                            // Roubo de veículo - Vermelho escuro
-                            report.tipo.contains("veículo", ignoreCase = true) && 
-                            report.tipo.contains("Roubo", ignoreCase = true) -> 
-                                Pair(0xFFC62828.toInt(), "🚗")
-                            
-                            // Furto sem violência - Laranja
-                            report.tipo.contains("Furto", ignoreCase = true) -> 
-                                Pair(0xFFFB8C00.toInt(), "F")
-                            
-                            // Roubo/Assalto - Vermelho
-                            report.tipo.contains("Roubo", ignoreCase = true) || 
-                            report.tipo.contains("Assalto", ignoreCase = true) -> 
-                                Pair(0xFFE53935.toInt(), "R")
-                            
-                            // Agressão - Vermelho médio
-                            report.tipo.contains("Agressão", ignoreCase = true) || 
-                            report.tipo.contains("verbal", ignoreCase = true) -> 
-                                Pair(0xFFD32F2F.toInt(), "A")
-                            
-                            // Tráfico - Verde escuro
-                            report.tipo.contains("Tráfico", ignoreCase = true) || 
-                            report.tipo.contains("drogas", ignoreCase = true) -> 
-                                Pair(0xFF00695C.toInt(), "T")
-                            
-                            // Vandalismo - Marrom
-                            report.tipo.contains("Vandalismo", ignoreCase = true) || 
-                            report.tipo.contains("dano", ignoreCase = true) || 
-                            report.tipo.contains("patrimônio", ignoreCase = true) -> 
-                                Pair(0xFF5D4037.toInt(), "V")
-                            
-                            // Estelionato/Fraude - Laranja profundo
-                            report.tipo.contains("Estelionato", ignoreCase = true) || 
-                            report.tipo.contains("fraude", ignoreCase = true) -> 
-                                Pair(0xFFF57C00.toInt(), "E")
-                            
-                            // Outros - Cinza
-                            else -> Pair(0xFF757575.toInt(), "?")
-                        }
+                        snippet = report.descricao
 
-                        // Use custom icon
+                        // VISUALIZAÇÃO LIMPA: Cor + Inicial
+                        val colorInt = getCrimeTypeColorInt(report.tipo)
+                        
+                        // Pega a primeira letra, ex: "A" para Assalto, "F" para Furto
+                        val initial = report.tipo.firstOrNull()?.uppercase() ?: "?"
+
+                        // Cria o balão apenas com a letra e a cor certa
                         icon = android.graphics.drawable.BitmapDrawable(
                             context.resources,
-                            createBalloonBitmap(symbol, color)
+                            createBalloonBitmap(initial, colorInt)
                         )
+                        
+                        setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM)
 
                         setOnMarkerClickListener { _, _ ->
                             viewModel.selectReport(report)
@@ -445,9 +421,6 @@ fun MapScreen(
                     view.overlays.add(marker)
                 }
                 
-                // Remover marcadores de Quick Report anteriores para evitar duplicatas e permitir remoção
-                view.overlays.removeIf { it is org.osmdroid.views.overlay.Marker && it.title == "Reportar Aqui" }
-
                 // Marcador de Quick Report (se ativo)
                 quickReportLocation?.let { location ->
                     val quickMarker = org.osmdroid.views.overlay.Marker(view).apply {
@@ -468,7 +441,6 @@ fun MapScreen(
                         }
                     }
                     view.overlays.add(quickMarker)
-                    view.invalidate()
                 }
                 
                 view.invalidate()
@@ -706,48 +678,64 @@ fun MapScreen(
         
         // Dialog de filtros
         if (showFilterDialog) {
+            // Configuração da Lista de Filtros (Chave Backend -> Texto Exibição)
+            val crimeFilters = listOf(
+                null to "Todos",
+                "Assalto" to "Assalto (Violência)",
+                "Roubo" to "Roubo (Veículo/Outros)",
+                "Furto" to "Furto (Sem violência)",
+                "Agressão" to "Agressão",
+                "Vandalismo" to "Vandalismo",
+                "Outro" to "Outros"
+            )
+            
             AlertDialog(
                 onDismissRequest = { showFilterDialog = false },
-                title = { Text("Filtrar por tipo de crime") },
+                title = { Text("Filtrar por Categoria") },
                 text = {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.verticalScroll(rememberScrollState())
                     ) {
-                        val crimeTypes = listOf(
-                            null to "Todos",
-                            "Roubo/Assalto com violência ou ameaça" to "Roubo/Assalto",
-                            "Furto sem violência" to "Furto",
-                            "Furto/Roubo de veículo" to "Furto/Roubo de veículo",
-                            "Agressão física ou verbal" to "Agressão",
-                            "Homicídio ou tentativa" to "Homicídio",
-                            "Sequestro ou cárcere privado" to "Sequestro",
-                            "Tráfico de drogas" to "Tráfico",
-                            "Vandalismo ou dano ao patrimônio" to "Vandalismo",
-                            "Estelionato ou fraude" to "Estelionato",
-                            "Outros crimes" to "Outros"
-                        )
-                        
-                        crimeTypes.forEach { (type, label) ->
+                        crimeFilters.forEach { (typeKey, label) ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        viewModel.setFilter(type)
-                                        // Reload reports with filter
+                                        viewModel.setFilter(typeKey)
+                                        // Recarrega aplicando o filtro na lista local
                                         uiState.userLocation?.let { (lat, lon) ->
                                             viewModel.loadReports(lat, lon)
                                         }
                                         showFilterDialog = false
                                     }
-                                    .padding(vertical = 12.dp, horizontal = 16.dp),
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 RadioButton(
-                                    selected = uiState.filterType == type,
-                                    onClick = null
+                                    selected = uiState.filterType == typeKey,
+                                    onClick = null // O clique é tratado na Row
                                 )
+                                
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(label)
+                                
+                                // Indicador visual de cor (exceto para "Todos")
+                                if (typeKey != null) {
+                                    Surface(
+                                        modifier = Modifier.size(16.dp),
+                                        shape = CircleShape,
+                                        color = getCrimeTypeColor(typeKey)
+                                    ) {}
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                } else {
+                                    // Espaço vazio para alinhar "Todos"
+                                    Spacer(modifier = Modifier.width(28.dp))
+                                }
+                                
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
                         }
                     }

@@ -62,22 +62,13 @@ class MapViewModel @Inject constructor(
             when (val result = reportRepository.getNearbyReports(latitude, longitude, radiusKm)) {
                 is Resource.Success -> {
                     val reports = result.data ?: emptyList()
+                    
+                    // Lógica de Filtro Simplificada e Robusta
                     val filteredReports = if (_uiState.value.filterType != null) {
-                        // Smart keyword-based filtering
+                        val filter = _uiState.value.filterType!!.lowercase()
                         reports.filter { report ->
-                            when (_uiState.value.filterType) {
-                                "Furto/Roubo de veículo" -> 
-                                    report.tipo.contains("veículo", ignoreCase = true)
-                                "Roubo/Assalto com violência ou ameaça" -> 
-                                    (report.tipo.contains("Roubo", ignoreCase = true) || 
-                                     report.tipo.contains("Assalto", ignoreCase = true)) &&
-                                    !report.tipo.contains("veículo", ignoreCase = true)
-                                "Furto sem violência" -> 
-                                    report.tipo.contains("Furto", ignoreCase = true) &&
-                                    !report.tipo.contains("veículo", ignoreCase = true)
-                                else -> 
-                                    report.tipo.contains(_uiState.value.filterType!!, ignoreCase = true)
-                            }
+                            // Compara o tipo salvo no banco com o filtro selecionado
+                            report.tipo.lowercase() == filter
                         }
                     } else {
                         reports

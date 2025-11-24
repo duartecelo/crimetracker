@@ -21,6 +21,24 @@ import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.util.LocationHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+// Helper function to convert UI crime types to backend-accepted types
+fun getBackendCrimeType(uiCategory: String): String {
+    return when (uiCategory) {
+        "Roubo/Assalto com violência ou ameaça" -> "Assalto"
+        "Furto sem violência" -> "Furto"
+        "Furto/Roubo de veículo" -> "Roubo"
+        "Agressão física ou verbal" -> "Agressão"
+        "Homicídio ou tentativa" -> "Agressão"
+        "Sequestro ou cárcere privado" -> "Agressão"
+        "Tráfico de drogas" -> "Outro"
+        "Vandalismo ou dano ao patrimônio" -> "Vandalismo"
+        "Estelionato ou fraude" -> "Outro"
+        "Outros crimes" -> "Outro"
+        else -> "Outro"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportCrimeScreen(
@@ -94,7 +112,8 @@ fun ReportCrimeScreen(
                     currentLatitude = location.first
                     currentLongitude = location.second
                     if (useCurrentLocation) {
-                        viewModel.createReport(tipo, descricao, location.first, location.second)
+                        val backendType = getBackendCrimeType(tipo)
+                        viewModel.createReport(backendType, descricao, location.first, location.second)
                     }
                 }
             }
@@ -229,29 +248,63 @@ fun ReportCrimeScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Botão Localização Atual
-                    OutlinedButton(
-                        onClick = { useCurrentLocation = true },
-                        modifier = Modifier.weight(1f),
-                        colors = if (useCurrentLocation) 
-                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) 
-                        else ButtonDefaults.outlinedButtonColors()
-                    ) {
-                        Icon(Icons.Default.MyLocation, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Atual")
+                    if (useCurrentLocation) {
+                        Button(
+                            onClick = { useCurrentLocation = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(Icons.Default.MyLocation, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Atual", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { useCurrentLocation = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(Icons.Default.MyLocation, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Atual")
+                        }
                     }
                     
                     // Botão Selecionar no Mapa
-                    OutlinedButton(
-                        onClick = { showLocationPicker = true },
-                        modifier = Modifier.weight(1f),
-                        colors = if (!useCurrentLocation) 
-                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) 
-                        else ButtonDefaults.outlinedButtonColors()
-                    ) {
-                        Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Mapa")
+                    if (!useCurrentLocation) {
+                        Button(
+                            onClick = { showLocationPicker = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Mapa", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showLocationPicker = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Mapa")
+                        }
                     }
                 }
                 
@@ -270,12 +323,14 @@ fun ReportCrimeScreen(
                     onClick = {
                         if (useCurrentLocation) {
                             if (currentLatitude != null && currentLongitude != null) {
-                                viewModel.createReport(tipo, descricao, currentLatitude!!, currentLongitude!!)
+                                val backendType = getBackendCrimeType(tipo)
+                                viewModel.createReport(backendType, descricao, currentLatitude!!, currentLongitude!!)
                             } else if (LocationHelper.hasLocationPermission(context)) {
                                 scope.launch {
                                     val location = LocationHelper.getCurrentLocation(context)
                                     if (location != null) {
-                                        viewModel.createReport(tipo, descricao, location.first, location.second)
+                                        val backendType = getBackendCrimeType(tipo)
+                                        viewModel.createReport(backendType, descricao, location.first, location.second)
                                     }
                                 }
                             } else {
@@ -283,19 +338,29 @@ fun ReportCrimeScreen(
                             }
                         } else {
                             // Usar posição manual (do mapa)
-                            viewModel.createReport(tipo, descricao, manualLatitude, manualLongitude)
+                            val backendType = getBackendCrimeType(tipo)
+                            viewModel.createReport(backendType, descricao, manualLatitude, manualLongitude)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
                     enabled = !uiState.isLoading && descricao.isNotBlank()
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onError
                         )
                     } else {
-                        Text("Reportar")
+                        Text(
+                            "REPORTAR CRIME",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
                     }
                 }
             }
