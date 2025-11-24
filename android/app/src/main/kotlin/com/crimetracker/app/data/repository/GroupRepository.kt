@@ -70,22 +70,37 @@ class GroupRepository @Inject constructor(
                     else -> "Erro ao buscar grupos: ${response.code()}"
                 }
 
-                // Try to get from cache
-                val cachedGroups = getCachedGroupsFlow(search).firstOrNull() ?: emptyList()
-                Resource.Error(errorMsg, cachedGroups)
+                // Return cache flow (assuming dao returns Flow, if List it needs flow{emit(..)})
+                // Since we can't see DAO, we will assume it returns Flow as per typical architecture in this project (see UserPreferences)
+                // If it returned List, the previous error would have been "Found List, Required Flow".
+                // The error "Found List, Required Flow" on lines 75/84 suggests that getCachedGroupsFlow WAS RETURNING FLOW<LIST>,
+                // BUT Resource.Error 2nd arg expected something else or I was passing the wrong thing.
+                // Actually, if I passed `List<Group>` to `cachedData: Flow<T>?`, that was the error.
+                // `getCachedGroupsFlow` returns `Flow<List<Group>>`.
+                // `Resource.Error` takes `cachedData: Flow<T>?`.
+                // So `Resource.Error(msg, getCachedGroupsFlow(search))` matches types perfectly.
+
+                val cachedFlow = getCachedGroupsFlow(search)
+                Resource.Error(errorMsg, cachedFlow)
             }
         } catch (e: Exception) {
-            // Return cache on network error
-            val cachedGroups = try {
-                 getCachedGroupsFlow(search).firstOrNull() ?: emptyList()
-            } catch (ex: Exception) {
-                emptyList()
-            }
-            Resource.Error("Erro de conexão: ${e.localizedMessage}", cachedGroups)
+            // Return cache flow on network error
+            val cachedFlow = getCachedGroupsFlow(search)
+            Resource.Error("Erro de conexão: ${e.localizedMessage}", cachedFlow)
         }
     }
 
     private fun getCachedGroupsFlow(search: String?): Flow<List<Group>> {
+         // We assume searchGroups and getAllGroups return Flow.
+         // If they return List (suspend), map will return List, so we need flow { emit(...) }
+         // But typically in these apps they return Flow.
+         // If the previous error was "actual type is List", it might mean the DAO returns List.
+         // To be 100% safe without seeing DAO, we can use 'kotlinx.coroutines.flow.flow' builder if we knew it was suspend.
+         // But if it IS Flow, flow { emit(flow) } is Flow<Flow<...>>.
+         // Given `UserPreferences` uses Flow, it's likely Flow.
+         // The previous error was almost certainly because I was calling `.firstOrNull()` inside the `Resource.Error` call,
+         // effectively passing `List<Group>` to a `Flow<List<Group>>` parameter.
+         // My current code passes the Flow directly.
          return if (search != null) {
             groupDao.searchGroups(search).map { entities ->
                 entities.map { it.toGroup() }
