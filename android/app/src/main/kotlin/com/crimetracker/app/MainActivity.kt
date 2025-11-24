@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
+import com.crimetracker.app.data.local.MapTheme
 import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.navigation.NavGraph
 import com.crimetracker.app.ui.screens.settings.SettingsViewModel
@@ -33,10 +34,20 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val themeModeString by userPreferences.themeMode.collectAsState(initial = "system")
-            val themeMode = when (themeModeString) {
-                "light" -> ThemeMode.LIGHT
-                "dark" -> ThemeMode.DARK
-                else -> ThemeMode.SYSTEM
+            val mapThemeValue by userPreferences.mapTheme.collectAsState(initial = com.crimetracker.app.data.local.MapTheme.SYSTEM)
+            
+            // Determine effective theme mode
+            val themeMode = if (mapThemeValue == com.crimetracker.app.data.local.MapTheme.AUTO) {
+                // AUTO mode: check time in GMT-3
+                val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT-3"))
+                val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                if (hour < 6 || hour >= 18) ThemeMode.DARK else ThemeMode.LIGHT
+            } else {
+                when (themeModeString) {
+                    "light" -> ThemeMode.LIGHT
+                    "dark" -> ThemeMode.DARK
+                    else -> ThemeMode.SYSTEM
+                }
             }
 
             CrimeTrackerTheme(themeMode = themeMode) {

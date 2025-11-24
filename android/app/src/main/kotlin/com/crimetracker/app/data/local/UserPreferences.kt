@@ -10,6 +10,13 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+enum class MapTheme {
+    LIGHT,
+    DARK,
+    AUTO,
+    SYSTEM
+}
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
 class UserPreferences(private val context: Context) {
@@ -20,10 +27,11 @@ class UserPreferences(private val context: Context) {
         private val USERNAME_KEY = stringPreferencesKey("username")
         private val EMAIL_KEY = stringPreferencesKey("email")
         private val THEME_MODE_KEY = stringPreferencesKey("theme_mode") // "light", "dark", "system"
-        private val ANONYMOUS_MODE_DEFAULT_KEY = booleanPreferencesKey("anonymous_mode_default")
+        private val ANONYMOUS_MODE_DEFAULT_KEY = booleanPreferencesKey("anonymous_mode_default_v2")
         private val NOTIFICATION_RADIUS_KEY = stringPreferencesKey("notification_radius") // em km
         private val MAP_TYPE_KEY = stringPreferencesKey("map_type") // "standard", "satellite"
         private val AUTO_DAY_NIGHT_MODE_KEY = booleanPreferencesKey("auto_day_night_mode")
+        private val MAP_THEME_KEY = stringPreferencesKey("map_theme") // "LIGHT", "DARK", "AUTO", "SYSTEM"
         private val USER_NICKNAME_KEY = stringPreferencesKey("user_nickname")
         private val USER_COLOR_KEY = stringPreferencesKey("user_color") // cor de destaque
     }
@@ -80,7 +88,7 @@ class UserPreferences(private val context: Context) {
 
     // Anonymous mode default
     val anonymousModeDefault: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[ANONYMOUS_MODE_DEFAULT_KEY] ?: false
+        preferences[ANONYMOUS_MODE_DEFAULT_KEY] ?: true
     }
 
     suspend fun setAnonymousModeDefault(enabled: Boolean) {
@@ -119,6 +127,22 @@ class UserPreferences(private val context: Context) {
     suspend fun setAutoDayNightMode(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTO_DAY_NIGHT_MODE_KEY] = enabled
+        }
+    }
+
+    // Map theme
+    val mapTheme: Flow<MapTheme> = context.dataStore.data.map { preferences ->
+        val themeString = preferences[MAP_THEME_KEY] ?: "SYSTEM"
+        try {
+            MapTheme.valueOf(themeString)
+        } catch (e: IllegalArgumentException) {
+            MapTheme.SYSTEM
+        }
+    }
+
+    suspend fun setMapTheme(theme: MapTheme) {
+        context.dataStore.edit { preferences ->
+            preferences[MAP_THEME_KEY] = theme.name
         }
     }
 

@@ -21,17 +21,23 @@ object LocationHelper {
             if (!hasLocationPermission(context)) return null
             
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-            val location = fusedLocationClient.lastLocation.await()
+            
+            // Tenta pegar a última localização conhecida
+            var location = fusedLocationClient.lastLocation.await()
+            
+            // Se for nula, tenta pedir uma nova localização
+            if (location == null) {
+                val request = com.google.android.gms.location.CurrentLocationRequest.Builder()
+                    .setPriority(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY)
+                    .build()
+                location = fusedLocationClient.getCurrentLocation(request, null).await()
+            }
             
             location?.let {
                 Pair(it.latitude, it.longitude)
-            } ?: run {
-                // Localização padrão (São Paulo) se não conseguir obter
-                Pair(-23.5505, -46.6333)
             }
         } catch (e: Exception) {
-            // Localização padrão em caso de erro
-            Pair(-23.5505, -46.6333)
+            null
         }
     }
 }

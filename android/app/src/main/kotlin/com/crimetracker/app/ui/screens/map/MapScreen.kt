@@ -9,6 +9,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.crimetracker.app.data.local.MapTheme
+import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.data.model.Report
 import com.crimetracker.app.ui.components.ReportFeedbackSection
 import com.crimetracker.app.ui.components.ReportAbuseDialog
@@ -49,11 +52,47 @@ fun MapScreen(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     var showAbuseDialog by remember { mutableStateOf(false) }
+    var showFilterDialog by remember { mutableStateOf(false) }
     var mapViewRef: MapView? by remember { mutableStateOf(null) }
     var quickReportLocation: GeoPoint? by remember { mutableStateOf(null) }
+    
+    // Get map theme from preferences
+    val userPreferences = remember { UserPreferences(context) }
+    val mapTheme by userPreferences.mapTheme.collectAsState(initial = MapTheme.SYSTEM)
+    val isSystemDark = isSystemInDarkTheme()
+    
+    // Determine if map should be dark
+    val isDarkMap = when (mapTheme) {
+        MapTheme.LIGHT -> false
+        MapTheme.DARK -> true
+        MapTheme.SYSTEM -> isSystemDark
+        MapTheme.AUTO -> {
+            val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT-3"))
+            val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+            hour < 6 || hour >= 18
+        }
+    }
 
-    // Fontes de mapa (Mundo todo)
+    // Fontes de mapa
     val standardSource = remember { TileSourceFactory.MAPNIK }
+    val darkSource = remember {
+        object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
+            "CartoDB Dark Matter",
+            0, 20, 256, ".png",
+            arrayOf(
+                "https://a.basemaps.cartocdn.com/dark_all/",
+                "https://b.basemaps.cartocdn.com/dark_all/",
+                "https://c.basemaps.cartocdn.com/dark_all/",
+                "https://d.basemaps.cartocdn.com/dark_all/"
+            )
+        ) {
+            override fun getTileURLString(pMapTileIndex: Long): String {
+                return baseUrl + org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) +
+                        "/" + org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) +
+                        "/" + org.osmdroid.util.MapTileIndex.getX(pMapTileIndex) + mImageFilenameEnding
+            }
+        }
+    }
     val satelliteSource = remember {
         object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
             "Esri World Imagery",
@@ -221,7 +260,7 @@ fun MapScreen(
                 }
             },
             update = { view ->
-                // Configurar tiles apenas se mudar
+                // Configurar tiles baseado no modo satélite
                 val currentTileSource = view.tileProvider.tileSource
                 val targetTileSource = if (uiState.isSatelliteMode) satelliteSource else standardSource
                 
@@ -229,46 +268,38 @@ fun MapScreen(
                     view.setTileSource(targetTileSource)
                 }
                 
-                // Aplicar filtro baseado em hora do dia (Auto Day/Night)
-                if (!uiState.isSatelliteMode && uiState.isAutoDayNightEnabled) {
-                    val calendar = java.util.Calendar.getInstance()
-                    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-                    val isDaytime = hour in 6..17 // 6am-6pm = dia
+                // Apply dark mode filter if needed (only for non-satellite mode)
+                if (!uiState.isSatelliteMode && isDarkMap) {
+                    val matrix = android.graphics.ColorMatrix()
+                    // Invert colors
+                    val invert = floatArrayOf(
+                        -1f,  0f,  0f, 0f, 255f,
+                         0f, -1f,  0f, 0f, 255f,
+                         0f,  0f, -1f, 0f, 255f,
+                         0f,  0f,  0f, 1f,   0f
+                    )
+                    matrix.set(invert)
                     
-                    if (isDaytime) {
-                        // Modo dia: sem filtro (mapa padrão claro)
-                        view.overlayManager.tilesOverlay.setColorFilter(null)
-                    } else {
-                        // Modo noite: filtro escuro clean
-                        val matrix = android.graphics.ColorMatrix()
-                        // 1. Inverter cores para base escura
-                        val invert = floatArrayOf(
-                            -1f,  0f,  0f, 0f, 255f,
-                             0f, -1f,  0f, 0f, 255f,
-                             0f,  0f, -1f, 0f, 255f,
-                             0f,  0f,  0f, 1f,   0f
-                        )
-                        matrix.set(invert)
-                        
-                        // 2. Desaturar para evitar cores gritantes
-                        val sat = android.graphics.ColorMatrix()
-                        sat.setSaturation(0.3f) 
-                        matrix.postConcat(sat)
-                        
-                        // 3. Ajuste de brilho/contraste
-                        val contrast = android.graphics.ColorMatrix()
-                        val scale = 0.9f
-                        val contrastArray = floatArrayOf(
-                            scale, 0f, 0f, 0f, -10f,
-                            0f, scale, 0f, 0f, -10f,
-                            0f, 0f, scale + 0.1f, 0f, 0f,
-                            0f, 0f, 0f, 1f, 0f
-                        )
-                        contrast.set(contrastArray)
-                        matrix.postConcat(contrast)
-
-                        view.overlayManager.tilesOverlay.setColorFilter(android.graphics.ColorMatrixColorFilter(matrix))
-                    }
+                    // Reduce saturation for better dark mode
+                    val sat = android.graphics.ColorMatrix()
+                    sat.setSaturation(0.4f)
+                    matrix.postConcat(sat)
+                    
+                    // Adjust brightness
+                    val brightness = android.graphics.ColorMatrix()
+                    val scale = 0.85f
+                    val brightnessArray = floatArrayOf(
+                        scale, 0f, 0f, 0f, -15f,
+                        0f, scale, 0f, 0f, -15f,
+                        0f, 0f, scale + 0.1f, 0f, -5f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                    brightness.set(brightnessArray)
+                    matrix.postConcat(brightness)
+                    
+                    view.overlayManager.tilesOverlay.setColorFilter(
+                        android.graphics.ColorMatrixColorFilter(matrix)
+                    )
                 } else {
                     view.overlayManager.tilesOverlay.setColorFilter(null)
                 }
@@ -343,13 +374,39 @@ fun MapScreen(
                         title = report.tipo
                         snippet = report.descricao.take(100)
                         
-                        // Define color and symbol based on report type
-                        val (color, symbol) = when (report.tipo.lowercase()) {
-                            "roubo", "assalto" -> Pair(android.graphics.Color.RED, "!")
-                            "furto" -> Pair(0xFFFFA500.toInt(), "?") // Orange
-                            "agressão" -> Pair(0xFF8B0000.toInt(), "X") // Dark Red
-                            "homicídio" -> Pair(0xFF000000.toInt(), "†")
-                            else -> Pair(0xFF555555.toInt(), "i") // Grey
+                        // Define color and symbol based on report type (modern, tech-style)
+                        val (color, symbol) = when {
+                            // Check for exact matches first, then partial matches
+                            report.tipo.contains("Homicídio", ignoreCase = true) -> 
+                                Pair(0xFF000000.toInt(), "H") // Black - H de Homicídio
+                            
+                            report.tipo.contains("Sequestro", ignoreCase = true) -> 
+                                Pair(0xFF6A1B9A.toInt(), "S") // Purple - S de Sequestro
+                            
+                            report.tipo.contains("Furto", ignoreCase = true) -> 
+                                Pair(0xFFFB8C00.toInt(), "F") // Orange - F de Furto
+                            
+                            report.tipo.contains("Roubo", ignoreCase = true) || 
+                            report.tipo.contains("Assalto", ignoreCase = true) -> 
+                                Pair(0xFFE53935.toInt(), "R") // Red - R de Roubo
+                            
+                            report.tipo.contains("Agressão", ignoreCase = true) || 
+                            report.tipo.contains("Violência", ignoreCase = true) -> 
+                                Pair(0xFFD32F2F.toInt(), "A") // Dark Red - A de Agressão
+                            
+                            report.tipo.contains("Tráfico", ignoreCase = true) || 
+                            report.tipo.contains("Drogas", ignoreCase = true) -> 
+                                Pair(0xFF00695C.toInt(), "T") // Teal - T de Tráfico
+                            
+                            report.tipo.contains("Vandalismo", ignoreCase = true) || 
+                            report.tipo.contains("Dano", ignoreCase = true) -> 
+                                Pair(0xFF5D4037.toInt(), "V") // Brown - V de Vandalismo
+                            
+                            report.tipo.contains("Estelionato", ignoreCase = true) || 
+                            report.tipo.contains("Fraude", ignoreCase = true) -> 
+                                Pair(0xFFF57C00.toInt(), "E") // Deep Orange - E de Estelionato
+                            
+                            else -> Pair(0xFF757575.toInt(), "?") // Grey - Outros
                         }
 
                         // Use custom icon
@@ -430,8 +487,12 @@ fun MapScreen(
 
             // Botão de filtros
             SmallFloatingActionButton(
-                onClick = { /* Filtros */ },
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                onClick = { showFilterDialog = true },
+                containerColor = if (uiState.filterType != null) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                },
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 2.dp,
                     pressedElevation = 4.dp
@@ -440,7 +501,10 @@ fun MapScreen(
                 Icon(
                     Icons.Default.FilterList, 
                     "Filtros",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = if (uiState.filterType != null)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -614,6 +678,60 @@ fun MapScreen(
                     scope.launch {
                         viewModel.reportAbuse(uiState.selectedReport!!.id, reason, description)
                         showAbuseDialog = false
+                    }
+                }
+            )
+        }
+        
+        // Dialog de filtros
+        if (showFilterDialog) {
+            AlertDialog(
+                onDismissRequest = { showFilterDialog = false },
+                title = { Text("Filtrar por tipo de crime") },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val crimeTypes = listOf(
+                            null to "Todos",
+                            "Roubo/Assalto com violência ou ameaça" to "Roubo/Assalto",
+                            "Furto sem violência" to "Furto",
+                            "Agressão física ou verbal" to "Agressão",
+                            "Homicídio ou tentativa" to "Homicídio",
+                            "Sequestro ou cárcere privado" to "Sequestro",
+                            "Tráfico de drogas" to "Tráfico",
+                            "Vandalismo ou dano ao patrimônio" to "Vandalismo",
+                            "Estelionato ou fraude" to "Estelionato"
+                        )
+                        
+                        crimeTypes.forEach { (type, label) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setFilter(type)
+                                        // Reload reports with filter
+                                        uiState.userLocation?.let { (lat, lon) ->
+                                            viewModel.loadReports(lat, lon)
+                                        }
+                                        showFilterDialog = false
+                                    }
+                                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = uiState.filterType == type,
+                                    onClick = null
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(label)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFilterDialog = false }) {
+                        Text("Fechar")
                     }
                 }
             )

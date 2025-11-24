@@ -59,7 +59,8 @@ data class CreateReportRequest(
     val tipo: String,
     val descricao: String,
     val latitude: Double,
-    val longitude: Double
+    val longitude: Double,
+    val isAnonymous: Boolean = false
 )
 
 data class ReportResponse(

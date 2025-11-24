@@ -16,7 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.crimetracker.app.data.local.MapTheme
+import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.util.LocationHelper
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +32,7 @@ fun ReportCrimeScreen(
     var tipo by remember { mutableStateOf("Roubo/Assalto com violência ou ameaça") }
     var descricao by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
-    var isAnonymous by remember { mutableStateOf(false) }
+
     var useCurrentLocation by remember { mutableStateOf(true) }
     
     // Initialize manual coords with passed values or 0.0
@@ -46,6 +49,10 @@ fun ReportCrimeScreen(
     val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Get map theme from preferences (reactive)
+    val userPreferences = remember { UserPreferences(context) }
+    val mapTheme by userPreferences.mapTheme.collectAsState(initial = MapTheme.SYSTEM)
 
     // Novas categorias unificadas
     val crimeTypes = listOf(
@@ -121,6 +128,7 @@ fun ReportCrimeScreen(
         LocationPickerScreen(
             initialLat = if (manualLatitude != 0.0) manualLatitude else (currentLatitude ?: -23.5505),
             initialLon = if (manualLongitude != 0.0) manualLongitude else (currentLongitude ?: -46.6333),
+            mapTheme = mapTheme,
             onLocationSelected = { lat, lon ->
                 manualLatitude = lat
                 manualLongitude = lon
@@ -210,30 +218,7 @@ fun ReportCrimeScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Switch para modo anônimo
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Enviar como anônimo",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = "Sua identidade não será divulgada",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = isAnonymous,
-                        onCheckedChange = { isAnonymous = it }
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
+
                 
                 // Seção de Localização
                 Text(

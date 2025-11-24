@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.crimetracker.app.data.local.MapTheme
 import com.crimetracker.app.ui.theme.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,6 +24,7 @@ fun SettingsScreen(
     val notificationRadius by viewModel.notificationRadius.collectAsState()
     val mapType by viewModel.mapType.collectAsState()
     val autoDayNightMode by viewModel.autoDayNightMode.collectAsState()
+    val mapTheme by viewModel.mapTheme.collectAsState()
 
     Scaffold(
         topBar = {
@@ -43,7 +45,7 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Seção de Tema
+            // Seção de Tema Unificado (App + Mapa)
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -58,7 +60,7 @@ fun SettingsScreen(
                     )
                     
                     Text(
-                        text = "Tema",
+                        text = "Tema (App e Mapa)",
                         style = MaterialTheme.typography.titleMedium
                     )
                     
@@ -67,24 +69,60 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FilterChip(
-                            selected = themeMode == ThemeMode.LIGHT,
-                            onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
+                            selected = themeMode == ThemeMode.LIGHT && mapTheme == MapTheme.LIGHT,
+                            onClick = { 
+                                viewModel.setThemeMode(ThemeMode.LIGHT)
+                                viewModel.setMapTheme(MapTheme.LIGHT)
+                            },
                             label = { Text("Claro") },
                             modifier = Modifier.weight(1f)
                         )
                         FilterChip(
-                            selected = themeMode == ThemeMode.DARK,
-                            onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
+                            selected = themeMode == ThemeMode.DARK && mapTheme == MapTheme.DARK,
+                            onClick = { 
+                                viewModel.setThemeMode(ThemeMode.DARK)
+                                viewModel.setMapTheme(MapTheme.DARK)
+                            },
                             label = { Text("Escuro") },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         FilterChip(
-                            selected = themeMode == ThemeMode.SYSTEM,
-                            onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                            selected = mapTheme == MapTheme.AUTO,
+                            onClick = { 
+                                viewModel.setMapTheme(MapTheme.AUTO)
+                                // Auto mode will handle theme switching based on time
+                            },
+                            label = { Text("Auto") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = themeMode == ThemeMode.SYSTEM && mapTheme == MapTheme.SYSTEM,
+                            onClick = { 
+                                viewModel.setThemeMode(ThemeMode.SYSTEM)
+                                viewModel.setMapTheme(MapTheme.SYSTEM)
+                            },
                             label = { Text("Sistema") },
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    
+                    // Helper text
+                    Text(
+                        text = when {
+                            mapTheme == MapTheme.AUTO -> "Modo automático: Claro durante o dia (6h-18h), Escuro à noite (18h-6h)"
+                            themeMode == ThemeMode.LIGHT && mapTheme == MapTheme.LIGHT -> "App e mapa sempre claros"
+                            themeMode == ThemeMode.DARK && mapTheme == MapTheme.DARK -> "App e mapa sempre escuros"
+                            themeMode == ThemeMode.SYSTEM && mapTheme == MapTheme.SYSTEM -> "Segue configuração do sistema"
+                            else -> ""
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -118,9 +156,40 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        var showAnonymousDialog by remember { mutableStateOf(false) }
+
+                        if (showAnonymousDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showAnonymousDialog = false },
+                                title = { Text("Desativar modo anônimo?") },
+                                text = { Text("Você tem certeza que deseja desativar o modo anônimo padrão? Suas denúncias poderão ser identificadas.") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.setAnonymousModeDefault(false)
+                                            showAnonymousDialog = false
+                                        }
+                                    ) {
+                                        Text("Sim, desativar")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showAnonymousDialog = false }) {
+                                        Text("Cancelar")
+                                    }
+                                }
+                            )
+                        }
+
                         Switch(
                             checked = anonymousModeDefault,
-                            onCheckedChange = { viewModel.setAnonymousModeDefault(it) }
+                            onCheckedChange = { 
+                                if (!it) {
+                                    showAnonymousDialog = true
+                                } else {
+                                    viewModel.setAnonymousModeDefault(true)
+                                }
+                            }
                         )
                     }
                 }

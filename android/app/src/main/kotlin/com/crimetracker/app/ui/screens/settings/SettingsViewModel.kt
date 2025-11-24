@@ -2,6 +2,7 @@ package com.crimetracker.app.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.crimetracker.app.data.local.MapTheme
 import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,7 +21,7 @@ class SettingsViewModel @Inject constructor(
     private val _themeMode = MutableStateFlow<ThemeMode>(ThemeMode.SYSTEM)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
-    private val _anonymousModeDefault = MutableStateFlow(false)
+    private val _anonymousModeDefault = MutableStateFlow(true)
     val anonymousModeDefault: StateFlow<Boolean> = _anonymousModeDefault.asStateFlow()
 
     private val _notificationRadius = MutableStateFlow("5")
@@ -31,6 +32,9 @@ class SettingsViewModel @Inject constructor(
     
     private val _autoDayNightMode = MutableStateFlow(true)
     val autoDayNightMode: StateFlow<Boolean> = _autoDayNightMode.asStateFlow()
+
+    private val _mapTheme = MutableStateFlow(MapTheme.SYSTEM)
+    val mapTheme: StateFlow<MapTheme> = _mapTheme.asStateFlow()
 
     init {
         loadPreferences()
@@ -60,6 +64,10 @@ class SettingsViewModel @Inject constructor(
             
             userPreferences.autoDayNightMode.first().let {
                 _autoDayNightMode.value = it
+            }
+            
+            userPreferences.mapTheme.first().let {
+                _mapTheme.value = it
             }
         }
     }
@@ -102,6 +110,13 @@ class SettingsViewModel @Inject constructor(
         _autoDayNightMode.value = enabled
         viewModelScope.launch {
             userPreferences.setAutoDayNightMode(enabled)
+        }
+    }
+    
+    fun setMapTheme(theme: MapTheme) {
+        _mapTheme.value = theme
+        viewModelScope.launch {
+            userPreferences.setMapTheme(theme)
         }
     }
 }
