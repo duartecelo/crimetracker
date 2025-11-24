@@ -1,5 +1,7 @@
 package com.crimetracker.app.ui.screens.group
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.crimetracker.app.data.model.Group
@@ -10,6 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
 import javax.inject.Inject
 
 data class GroupUiState(
@@ -32,7 +37,7 @@ class GroupViewModel @Inject constructor(
         loadMyGroups()
     }
 
-    fun createGroup(nome: String, descricao: String?) {
+    fun createGroup(nome: String, descricao: String?, imageUri: Uri?, context: Context) {
         if (nome.isBlank()) {
             _uiState.value = _uiState.value.copy(error = "Nome do grupo é obrigatório")
             return
@@ -41,7 +46,11 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            when (val result = groupRepository.createGroup(nome, descricao)) {
+            val imageFile = imageUri?.let { uri ->
+                getFileFromUri(context, uri)
+            }
+
+            when (val result = groupRepository.createGroup(nome, descricao, imageFile)) {
                 is Resource.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -57,6 +66,25 @@ class GroupViewModel @Inject constructor(
                 }
                 else -> {}
             }
+
+            // Cleanup temp file
+            imageFile?.delete()
+        }
+    }
+
+    // Helper to convert Uri to File
+    private fun getFileFromUri(context: Context, uri: Uri): File? {
+        try {
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            val file = File(context.cacheDir, "temp_image_${System.currentTimeMillis()}.jpg")
+            val outputStream = FileOutputStream(file)
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+            return file
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
         }
     }
 
@@ -72,18 +100,11 @@ class GroupViewModel @Inject constructor(
                     )
                 }
                 is Resource.Error -> {
-                    result.cachedData?.collect { cachedGroups ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            groups = cachedGroups,
-                            error = result.message
-                        )
-                    } ?: run {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = result.message
-                        )
-                    }
+                    // Simplified error handling as per previous step discussion
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
                 }
                 else -> {}
             }
@@ -152,4 +173,3 @@ class GroupViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(successMessage = null)
     }
 }
-

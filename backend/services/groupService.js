@@ -10,8 +10,9 @@ const { generateUUID, getCurrentTimestamp } = require('../utils');
  * @param {string} userId - ID do usuário criador
  * @param {string} nome - Nome do grupo
  * @param {string} descricao - Descrição do grupo
+ * @param {string} imagem - Caminho da imagem de capa
  */
-async function createGroup(userId, nome, descricao) {
+async function createGroup(userId, nome, descricao, imagem) {
   const startTime = Date.now();
 
   // Validar nome
@@ -39,9 +40,9 @@ async function createGroup(userId, nome, descricao) {
 
   // Inserir grupo no banco
   await db.run(
-    `INSERT INTO groups (id, nome, descricao, criador, created_at)
-     VALUES (?, ?, ?, ?, ?)`,
-    [groupId, nome.trim(), descricao ? descricao.trim() : null, userId, timestamp]
+    `INSERT INTO groups (id, nome, descricao, criador, created_at, imagem)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [groupId, nome.trim(), descricao ? descricao.trim() : null, userId, timestamp, imagem || null]
   );
 
   // Adicionar criador como membro automaticamente
@@ -52,7 +53,7 @@ async function createGroup(userId, nome, descricao) {
   );
 
   // Buscar grupo criado com member_count
-  const group = await getGroupById(groupId);
+  const group = await getGroupById(groupId, userId);
 
   const duration = Date.now() - startTime;
   console.log(`✅ Grupo criado em ${duration}ms`);
@@ -72,6 +73,7 @@ async function searchGroups(search = null) {
       g.id,
       g.nome,
       g.descricao,
+      g.imagem,
       g.created_at,
       u.username as criador_username,
       COUNT(gm.user_id) as member_count
@@ -101,13 +103,15 @@ async function searchGroups(search = null) {
 /**
  * Busca grupo por ID
  * @param {string} groupId - ID do grupo
+ * @param {string} requestingUserId - ID do usuário fazendo a requisição (opcional)
  */
-async function getGroupById(groupId) {
+async function getGroupById(groupId, requestingUserId = null) {
   const group = await db.get(
     `SELECT 
       g.id,
       g.nome,
       g.descricao,
+      g.imagem,
       g.criador,
       g.created_at,
       u.username as criador_username,
@@ -122,6 +126,17 @@ async function getGroupById(groupId) {
 
   if (!group) {
     throw new Error('Grupo não encontrado');
+  }
+
+  // Check membership if requestingUserId is provided
+  if (requestingUserId) {
+      const isMember = await db.get(
+          'SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?',
+          [groupId, requestingUserId]
+      );
+      group.is_member = !!isMember;
+  } else {
+      group.is_member = false;
   }
 
   return group;
@@ -160,7 +175,7 @@ async function joinGroup(groupId, userId) {
   );
 
   // Buscar grupo atualizado
-  const updatedGroup = await getGroupById(groupId);
+  const updatedGroup = await getGroupById(groupId, userId);
 
   const duration = Date.now() - startTime;
   console.log(`✅ Usuário entrou no grupo em ${duration}ms`);
@@ -204,7 +219,7 @@ async function leaveGroup(groupId, userId) {
   );
 
   // Buscar grupo atualizado
-  const updatedGroup = await getGroupById(groupId);
+  const updatedGroup = await getGroupById(groupId, userId);
 
   const duration = Date.now() - startTime;
   console.log(`✅ Usuário saiu do grupo em ${duration}ms`);
@@ -296,7 +311,7 @@ async function updateGroup(groupId, userId, updates) {
     throw new Error('Grupo não encontrado ou você não tem permissão para editá-lo');
   }
 
-  const { nome, descricao } = updates;
+  const { nome, descricao, imagem } = updates;
   const fieldsToUpdate = [];
   const values = [];
 
@@ -324,6 +339,11 @@ async function updateGroup(groupId, userId, updates) {
     values.push(descricao ? descricao.trim() : null);
   }
 
+  if (imagem !== undefined) {
+      fieldsToUpdate.push('imagem = ?');
+      values.push(imagem);
+  }
+
   if (fieldsToUpdate.length === 0) {
     throw new Error('Nenhum campo para atualizar');
   }
@@ -335,7 +355,7 @@ async function updateGroup(groupId, userId, updates) {
     values
   );
 
-  return await getGroupById(groupId);
+  return await getGroupById(groupId, userId);
 }
 
 module.exports = {
@@ -349,4 +369,3 @@ module.exports = {
   deleteGroup,
   updateGroup
 };
-

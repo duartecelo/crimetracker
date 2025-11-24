@@ -17,6 +17,8 @@ fun MapHomeScreen(
     onNavigateToReportCrime: () -> Unit,
     onNavigateToCommunity: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToCreateGroup: () -> Unit = {},
+    onNavigateToGroup: (String) -> Unit = {},
     onReportClick: (String) -> Unit = {}, // reportId
     onLogout: () -> Unit = {}
 ) {
@@ -67,10 +69,8 @@ fun MapHomeScreen(
             1 -> {
                 // Mostrar tela de Comunidade diretamente
                 com.crimetracker.app.ui.screens.community.CommunityScreen(
-                    onNavigateToCreateGroup = { /* TODO: Implementar navegação interna se necessário ou usar callback */ },
-                    onNavigateToGroup = { groupId ->
-                        // TODO: Navegar para detalhes do grupo
-                    }
+                    onNavigateToCreateGroup = onNavigateToCreateGroup,
+                    onNavigateToGroup = onNavigateToGroup
                 )
             }
             2 -> {

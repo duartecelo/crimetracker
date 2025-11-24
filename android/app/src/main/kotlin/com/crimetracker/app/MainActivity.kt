@@ -21,6 +21,8 @@ import com.crimetracker.app.ui.theme.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
+import androidx.core.view.WindowCompat
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject
@@ -28,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val themeModeString by userPreferences.themeMode.collectAsState(initial = "system")
             val themeMode = when (themeModeString) {

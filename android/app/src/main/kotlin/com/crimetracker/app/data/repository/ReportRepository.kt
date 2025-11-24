@@ -9,6 +9,7 @@ import com.crimetracker.app.data.remote.ApiService
 import com.crimetracker.app.util.Resource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -97,14 +98,64 @@ class ReportRepository @Inject constructor(
 
     suspend fun submitReportFeedback(reportId: String, feedback: String): Resource<Boolean> {
         return try {
+            // Primeiro atualizar localmente para persistência imediata (Optimistic UI support)
+            val localReport = crimeReportDao.getReportById(reportId).first()
+            
+            if (localReport != null) {
+                val currentUseful = localReport.usefulCount
+                val currentNotUseful = localReport.notUsefulCount
+                val currentFeedback = localReport.userFeedback
+                
+                val updatedReport = when (feedback) {
+                    "useful" -> {
+                        if (currentFeedback == "useful") {
+                            // Toggle off
+                            localReport.copy(
+                                usefulCount = (currentUseful - 1).coerceAtLeast(0),
+                                userFeedback = null
+                            )
+                        } else {
+                            // Toggle on (or switch)
+                            localReport.copy(
+                                usefulCount = currentUseful + 1,
+                                notUsefulCount = if (currentFeedback == "not_useful") (currentNotUseful - 1).coerceAtLeast(0) else currentNotUseful,
+                                userFeedback = "useful"
+                            )
+                        }
+                    }
+                    "not_useful" -> {
+                        if (currentFeedback == "not_useful") {
+                            // Toggle off
+                            localReport.copy(
+                                notUsefulCount = (currentNotUseful - 1).coerceAtLeast(0),
+                                userFeedback = null
+                            )
+                        } else {
+                            // Toggle on (or switch)
+                            localReport.copy(
+                                notUsefulCount = currentNotUseful + 1,
+                                usefulCount = if (currentFeedback == "useful") (currentUseful - 1).coerceAtLeast(0) else currentUseful,
+                                userFeedback = "not_useful"
+                            )
+                        }
+                    }
+                    else -> localReport
+                }
+                
+                crimeReportDao.insertReport(updatedReport)
+            }
+
             val response = apiService.submitReportFeedback(
                 reportId,
                 com.crimetracker.app.data.model.ReportFeedbackRequest(reportId, feedback)
             )
             
             if (response.isSuccessful && response.body() != null) {
+                // Se a API retornar o report atualizado, poderíamos salvar novamente, 
+                // mas por enquanto assumimos que o local está correto ou será sincronizado depois.
                 Resource.Success(true)
             } else {
+                // Se falhar, poderíamos reverter o local, mas para UX é melhor manter e tentar sincronizar depois (TODO)
                 Resource.Error("Erro ao enviar feedback: ${response.code()}")
             }
         } catch (e: Exception) {

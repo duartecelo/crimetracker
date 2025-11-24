@@ -2,6 +2,11 @@ package com.crimetracker.app.ui.screens.map
 
 import android.Manifest
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -11,8 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -39,8 +46,25 @@ fun MapScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
     var showAbuseDialog by remember { mutableStateOf(false) }
     var mapViewRef: MapView? by remember { mutableStateOf(null) }
+
+    // Fontes de mapa (Mundo todo)
+    val standardSource = remember { TileSourceFactory.MAPNIK }
+    val satelliteSource = remember {
+        object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
+            "Esri World Imagery",
+            0, 19, 256, ".jpg",
+            arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
+        ) {
+            override fun getTileURLString(pMapTileIndex: Long): String {
+                return baseUrl + org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) + "/" +
+                        org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "/" +
+                        org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
+            }
+        }
+    }
 
     // Configurar OSM
     LaunchedEffect(Unit) {
@@ -86,6 +110,56 @@ fun MapScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var mapView: MapView? by remember { mutableStateOf(null) }
     
+    // Helper function to create Waze-like balloon marker
+    fun createBalloonBitmap(text: String, color: Int): Bitmap {
+        // Convert dp to px for consistency across devices
+        val widthPx = with(density) { 56.dp.toPx() }.toInt()
+        val heightPx = with(density) { 64.dp.toPx() }.toInt()
+
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint().apply {
+            this.color = color
+            style = Paint.Style.FILL
+            isAntiAlias = true
+            setShadowLayer(5f, 2f, 2f, 0xAA000000.toInt())
+        }
+
+        // Draw Bubble
+        val rect = RectF(5f, 5f, widthPx - 5f, heightPx - 15f)
+        val cornerRadius = with(density) { 16.dp.toPx() }
+        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint)
+
+        // Draw Triangle pointer
+        val path = android.graphics.Path()
+        val triangleWidth = with(density) { 12.dp.toPx() }
+        val triangleHeight = with(density) { 12.dp.toPx() }
+
+        path.moveTo(widthPx / 2f - triangleWidth / 2, heightPx - 15f)
+        path.lineTo(widthPx / 2f + triangleWidth / 2, heightPx - 15f)
+        path.lineTo(widthPx / 2f, heightPx - 2f)
+        path.close()
+        canvas.drawPath(path, paint)
+
+        // Draw Text/Icon
+        val textPaint = Paint().apply {
+            this.color = android.graphics.Color.WHITE
+            this.textSize = with(density) { 20.sp.toPx() }
+            this.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+        }
+
+        // Centralizar texto
+        val xPos = widthPx / 2f
+        val yPos = (rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2)
+
+        // Simplificar o texto (apenas primeira letra ou ícone)
+        val shortText = text.take(1).uppercase()
+        canvas.drawText(shortText, xPos, yPos, textPaint)
+
+        return bitmap
+    }
+
     // Gerenciar ciclo de vida do MapView
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -111,6 +185,7 @@ fun MapScreen(
                     minZoomLevel = 5.0
                     maxZoomLevel = 19.0
                     setMultiTouchControls(true)
+                    setBuiltInZoomControls(false) // Desabilitar botões padrão do OSMDroid
                     
                     // Localização inicial (São Paulo)
                     val initialLocation = GeoPoint(-23.5505, -46.6333)
@@ -122,49 +197,126 @@ fun MapScreen(
                 }
             },
             update = { view ->
-                // Alternar entre mapa normal e satélite
-                // Usar Esri World Imagery para melhor cobertura no Brasil
-                val satelliteSource = object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
-                    "Esri World Imagery",
-                    0, 19, 256, ".jpg",
-                    arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/")
-                ) {
-                    override fun getTileURLString(pMapTileIndex: Long): String {
-                        return baseUrl + org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) + "/" +
-                                org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "/" +
-                                org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
+                // Configurar tiles apenas se mudar
+                val currentTileSource = view.tileProvider.tileSource
+                val targetTileSource = if (uiState.isSatelliteMode) satelliteSource else standardSource
+                
+                if (currentTileSource.name() != targetTileSource.name()) {
+                    view.setTileSource(targetTileSource)
+                }
+                
+                // Aplicar filtro baseado em hora do dia (Auto Day/Night)
+                if (!uiState.isSatelliteMode) {
+                    val calendar = java.util.Calendar.getInstance()
+                    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                    val isDaytime = hour in 6..17 // 6am-6pm = dia
+                    
+                    if (isDaytime) {
+                        // Modo dia: sem filtro (mapa padrão claro)
+                        view.overlayManager.tilesOverlay.setColorFilter(null)
+                    } else {
+                        // Modo noite: filtro escuro clean
+                        val matrix = android.graphics.ColorMatrix()
+                        // 1. Inverter cores para base escura
+                        val invert = floatArrayOf(
+                            -1f,  0f,  0f, 0f, 255f,
+                             0f, -1f,  0f, 0f, 255f,
+                             0f,  0f, -1f, 0f, 255f,
+                             0f,  0f,  0f, 1f,   0f
+                        )
+                        matrix.set(invert)
+                        
+                        // 2. Desaturar para evitar cores gritantes
+                        val sat = android.graphics.ColorMatrix()
+                        sat.setSaturation(0.3f) 
+                        matrix.postConcat(sat)
+                        
+                        // 3. Ajuste de brilho/contraste
+                        val contrast = android.graphics.ColorMatrix()
+                        val scale = 0.9f
+                        val contrastArray = floatArrayOf(
+                            scale, 0f, 0f, 0f, -10f,
+                            0f, scale, 0f, 0f, -10f,
+                            0f, 0f, scale + 0.1f, 0f, 0f,
+                            0f, 0f, 0f, 1f, 0f
+                        )
+                        contrast.set(contrastArray)
+                        matrix.postConcat(contrast)
+
+                        view.overlayManager.tilesOverlay.setColorFilter(android.graphics.ColorMatrixColorFilter(matrix))
                     }
+                } else {
+                    view.overlayManager.tilesOverlay.setColorFilter(null)
+                }
+                
+                // Limpar overlays (exceto rotação que é fixa)
+                view.overlays.removeIf { it !is org.osmdroid.views.overlay.gestures.RotationGestureOverlay }
+                
+                // Adicionar overlay de rotação se não existir
+                if (view.overlays.none { it is org.osmdroid.views.overlay.gestures.RotationGestureOverlay }) {
+                    val rotationGestureOverlay = org.osmdroid.views.overlay.gestures.RotationGestureOverlay(view)
+                    rotationGestureOverlay.isEnabled = true
+                    view.overlays.add(rotationGestureOverlay)
                 }
 
-                val tileSource = if (uiState.isSatelliteMode) {
-                    satelliteSource
-                } else {
-                    TileSourceFactory.MAPNIK
-                }
-                
-                if (view.tileProvider.tileSource.name() != tileSource.name()) {
-                    view.setTileSource(tileSource)
-                }
-                
-                // Atualizar marcadores quando reports mudarem
-                view.overlays.clear()
-                
-                // Overlay de localização do usuário
+                // Overlay de "Pulso" para localização do usuário (Efeito Waze/Radar)
                 if (uiState.userLocation != null) {
-                    val locationOverlay = MyLocationNewOverlay(view)
-                    locationOverlay.enableMyLocation()
-                    view.overlays.add(locationOverlay)
-                    
-                    // Só centralizar automaticamente na primeira vez ou se for solicitado explicitamente
-                    // A lógica de "seguir" deve ser feita via botão, não aqui no update loop constante
+                    val pulseOverlay = object : org.osmdroid.views.overlay.Overlay() {
+                        var radius = 0f
+                        var alpha = 255
+                        val paint = android.graphics.Paint().apply {
+                            color = android.graphics.Color.CYAN
+                            style = android.graphics.Paint.Style.FILL
+                            isAntiAlias = true
+                        }
+                        
+                        override fun draw(c: android.graphics.Canvas?, osmv: MapView?, shadow: Boolean) {
+                            if (shadow) return
+                            val loc = uiState.userLocation ?: return
+                            val gp = GeoPoint(loc.first, loc.second)
+                            val pt = android.graphics.Point()
+                            osmv?.projection?.toPixels(gp, pt) ?: return
+                            
+                            // Animação simples baseada no tempo
+                            val time = System.currentTimeMillis() % 2000
+                            val progress = time / 2000f
+                            radius = 100f * progress
+                            alpha = (255 * (1 - progress)).toInt()
+                            
+                            paint.alpha = alpha
+                            c?.drawCircle(pt.x.toFloat(), pt.y.toFloat(), radius, paint)
+                            
+                            // Desenhar ponto central fixo
+                            paint.alpha = 255
+                            c?.drawCircle(pt.x.toFloat(), pt.y.toFloat(), 15f, paint)
+                            
+                            osmv?.postInvalidateDelayed(16) // 60 FPS
+                        }
+                    }
+                    view.overlays.add(pulseOverlay)
                 }
                 
-                // Adicionar marcadores de crimes
+                // Adicionar marcadores de crimes com visual moderno
                 uiState.reports.forEach { report ->
                     val marker = org.osmdroid.views.overlay.Marker(view).apply {
                         position = GeoPoint(report.lat, report.lon)
                         title = report.tipo
                         snippet = report.descricao.take(100)
+                        
+                        // Define color based on report type
+                        val color = when (report.tipo.lowercase()) {
+                            "assalto", "roubo" -> android.graphics.Color.RED
+                            "furto" -> 0xFFFFA500.toInt() // Orange
+                            "agressão" -> 0xFF8B0000.toInt() // Dark Red
+                            else -> 0xFF555555.toInt() // Grey
+                        }
+
+                        // Use custom icon
+                        icon = android.graphics.drawable.BitmapDrawable(
+                            context.resources,
+                            createBalloonBitmap(report.tipo, color)
+                        )
+
                         setOnMarkerClickListener { _, _ ->
                             viewModel.selectReport(report)
                             onReportClick(report)
@@ -179,41 +331,55 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Botões flutuantes no topo direito
+        // Botões flutuantes no topo direito (Estilo Waze)
         Column(
             modifier = Modifier
                 .align(androidx.compose.ui.Alignment.TopEnd)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Botão de satélite
-            FloatingActionButton(
+            SmallFloatingActionButton(
                 onClick = { viewModel.toggleSatelliteMode() },
-                modifier = Modifier.size(48.dp),
                 containerColor = if (uiState.isSatelliteMode) {
-                    MaterialTheme.colorScheme.primary
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
                 } else {
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                }
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                },
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 2.dp,
+                    pressedElevation = 4.dp
+                )
             ) {
                 Icon(
                     if (uiState.isSatelliteMode) Icons.Default.Layers else Icons.Default.Map,
-                    "Satélite"
+                    "Satélite",
+                    tint = if (uiState.isSatelliteMode) 
+                        MaterialTheme.colorScheme.onPrimary 
+                    else 
+                        MaterialTheme.colorScheme.onSurface
                 )
             }
 
             // Botão de filtros
-            FloatingActionButton(
+            SmallFloatingActionButton(
                 onClick = { /* Filtros */ },
-                modifier = Modifier.size(48.dp),
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 2.dp,
+                    pressedElevation = 4.dp
+                )
             ) {
-                Icon(Icons.Default.FilterList, "Filtros")
+                Icon(
+                    Icons.Default.FilterList, 
+                    "Filtros",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
 
             // Botão de centralizar localização
             if (uiState.userLocation != null) {
-                FloatingActionButton(
+                SmallFloatingActionButton(
                     onClick = {
                         scope.launch {
                             val location = LocationHelper.getCurrentLocation(context)
@@ -225,11 +391,54 @@ fun MapScreen(
                             }
                         }
                     },
-                    modifier = Modifier.size(48.dp),
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 2.dp,
+                        pressedElevation = 4.dp
+                    )
                 ) {
-                    Icon(Icons.Default.MyLocation, "Minha localização")
+                    Icon(
+                        Icons.Default.MyLocation, 
+                        "Minha localização",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
+            }
+            
+            // Zoom In (+)
+            SmallFloatingActionButton(
+                onClick = {
+                    mapViewRef?.controller?.zoomIn()
+                },
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 2.dp,
+                    pressedElevation = 4.dp
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Ampliar"
+                )
+            }
+            
+            // Zoom Out (-)
+            SmallFloatingActionButton(
+                onClick = {
+                    mapViewRef?.controller?.zoomOut()
+                },
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 2.dp,
+                    pressedElevation = 4.dp
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Remove,
+                    contentDescription = "Reduzir"
+                )
             }
         }
 

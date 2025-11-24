@@ -94,7 +94,9 @@ object NetworkModule {
             context,
             CrimeTrackerDatabase::class.java,
             "crimetracker_database"
-        ).build()
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
     
     @Provides

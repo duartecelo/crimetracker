@@ -18,6 +18,7 @@ fun HomeScreen(
     onNavigateToReportCrime: () -> Unit,
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToCreatePost: (String) -> Unit,
+    onNavigateToGroup: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit,
     onLogout: () -> Unit,
     authViewModel: AuthViewModel = hiltViewModel()
@@ -96,7 +97,8 @@ fun HomeScreen(
             )
             2 -> GroupsTab(
                 modifier = Modifier.padding(padding),
-                onNavigateToCreateGroup = onNavigateToCreateGroup
+                onNavigateToCreateGroup = onNavigateToCreateGroup,
+                onNavigateToGroup = onNavigateToGroup
             )
         }
     }

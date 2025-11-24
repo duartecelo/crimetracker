@@ -110,7 +110,8 @@ data class ReportFeedbackResponse(
 // Group Models
 data class CreateGroupRequest(
     val nome: String,
-    val descricao: String? = null
+    val descricao: String? = null,
+    @SerializedName("cover_url") val coverUrl: String? = null
 )
 
 data class GroupResponse(
@@ -129,9 +130,12 @@ data class Group(
     val id: String,
     val nome: String,
     val descricao: String? = null,
+    @SerializedName("cover_url") val coverUrl: String? = null,
+    @SerializedName("imagem") val imagem: String? = null,
     @SerializedName("criador_username") val criadorUsername: String? = null,
     @SerializedName("member_count") val memberCount: Int,
-    @SerializedName("created_at") val createdAt: String
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("is_member") val isMember: Boolean = false
 )
 
 data class GroupMembersResponse(
@@ -171,7 +175,15 @@ data class Post(
     val conteudo: String,
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("author_username") val authorUsername: String,
-    @SerializedName("group_name") val groupName: String? = null
+    @SerializedName("group_name") val groupName: String? = null,
+    val likeCount: Int = 0,
+    val commentCount: Int = 0,
+    val isLiked: Boolean = false,
+    @SerializedName("is_important") val isImportant: Boolean = false,
+    @SerializedName("media_url") val mediaUrl: String? = null,
+    @SerializedName("media_type") val mediaType: String? = null, // "image", "video"
+    @SerializedName("dislike_count") val dislikeCount: Int = 0,
+    @SerializedName("is_disliked") val isDisliked: Boolean = false
 )
 
 data class Pagination(

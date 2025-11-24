@@ -18,8 +18,10 @@ import com.crimetracker.app.ui.screens.post.CreatePostScreen
 import com.crimetracker.app.ui.screens.profile.ProfileScreen
 import com.crimetracker.app.ui.screens.settings.SettingsScreen
 import com.crimetracker.app.ui.screens.report.ReportCrimeScreen
-import com.crimetracker.app.ui.screens.splash.SplashScreen
+// import com.crimetracker.app.ui.screens.splash.SplashScreen // File doesn't exist
 import com.crimetracker.app.ui.screens.community.CommunityScreen
+
+import com.crimetracker.app.ui.screens.splash.SplashScreen
 
 @Composable
 fun NavGraph(
@@ -45,6 +47,7 @@ fun NavGraph(
                 }
             )
         }
+
 
         // Auth
         composable(Screen.Login.route) {
@@ -118,6 +121,12 @@ fun NavGraph(
                 },
                 onNavigateToProfile = {
                     navController.navigate(Screen.Profile.route)
+                },
+                onNavigateToCreateGroup = {
+                    navController.navigate(Screen.CreateGroup.route)
+                },
+                onNavigateToGroup = { groupId ->
+                    navController.navigate(Screen.GroupDetail.createRoute(groupId))
                 },
                 onReportClick = { reportId ->
                     // TODO: Navegar para detalhes do report
@@ -204,7 +213,21 @@ fun NavGraph(
                     navController.navigate(Screen.CreateGroup.route)
                 },
                 onNavigateToGroup = { groupId ->
-                    // TODO: Navegar para tela de detalhes do grupo
+                    navController.navigate(Screen.GroupDetail.createRoute(groupId))
+                }
+            )
+        }
+
+        // Group Detail
+        composable(
+            route = Screen.GroupDetail.route,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType }
+            )
+        ) {
+            com.crimetracker.app.ui.screens.group.GroupDetailScreen(
+                onBackClick = {
+                    navController.popBackStack()
                 }
             )
         }

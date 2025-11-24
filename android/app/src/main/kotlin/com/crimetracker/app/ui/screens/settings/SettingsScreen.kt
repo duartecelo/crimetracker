@@ -22,6 +22,7 @@ fun SettingsScreen(
     val anonymousModeDefault by viewModel.anonymousModeDefault.collectAsState()
     val notificationRadius by viewModel.notificationRadius.collectAsState()
     val mapType by viewModel.mapType.collectAsState()
+    val autoDayNightMode by viewModel.autoDayNightMode.collectAsState()
 
     Scaffold(
         topBar = {
@@ -194,6 +195,31 @@ fun SettingsScreen(
                             onClick = { viewModel.setMapType("satellite") },
                             label = { Text("Satélite") },
                             modifier = Modifier.weight(1f)
+                        )
+                    }
+                    
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    // Auto Dia/Noite
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Modo Dia/Noite Automático",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "Alterna entre dia (6h-18h) e noite (18h-6h)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = autoDayNightMode,
+                            onCheckedChange = { viewModel.setAutoDayNightMode(it) }
                         )
                     }
                 }

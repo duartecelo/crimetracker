@@ -15,6 +15,9 @@ data class CrimeReportEntity(
     val authorUsername: String?,
     val distanceMeters: Int?,
     val distanceKm: String?,
+    val usefulCount: Int = 0,
+    val notUsefulCount: Int = 0,
+    val userFeedback: String? = null,
     val lastSync: Long = System.currentTimeMillis()
 )
 

@@ -82,7 +82,7 @@ function createTables() {
   console.log('  ✓ Tabela crime_reports criada');
 
   // Tabela de grupos de bairro
-  // Campos: id, nome, descrição, criador (creator_id), data (created_at)
+  // Campos: id, nome, descrição, criador (creator_id), data (created_at), imagem
   db.exec(`
     CREATE TABLE IF NOT EXISTS groups (
       id TEXT PRIMARY KEY,
@@ -90,10 +90,23 @@ function createTables() {
       descricao TEXT,
       criador TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      imagem TEXT,
       FOREIGN KEY (criador) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
   console.log('  ✓ Tabela groups criada');
+
+  // Verificar e adicionar coluna 'imagem' caso ela não exista (para bancos já criados)
+  try {
+    const tableInfo = db.pragma('table_info(groups)');
+    const hasImagem = tableInfo.some(col => col.name === 'imagem');
+    if (!hasImagem) {
+        db.exec('ALTER TABLE groups ADD COLUMN imagem TEXT');
+        console.log('  ✓ Coluna imagem adicionada à tabela groups');
+    }
+  } catch (e) {
+      console.error('Erro ao verificar/adicionar coluna imagem:', e);
+  }
 
   // Tabela de membros dos grupos
   // Campos: id de grupo (group_id) e id de usuário (user_id), joined_at
@@ -223,4 +236,3 @@ module.exports = {
   get,
   all
 };
-
