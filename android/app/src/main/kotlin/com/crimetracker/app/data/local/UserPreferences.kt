@@ -156,5 +156,23 @@ class UserPreferences(private val context: Context) {
             preferences[USER_DESCRIPTION_KEY] = description
         }
     }
+
+    data class UserProfileData(
+        val username: String,
+        val email: String,
+        val nickname: String,
+        val description: String,
+        val userColor: String
+    )
+
+    val userProfile: Flow<UserProfileData> = context.dataStore.data.map { preferences ->
+        UserProfileData(
+            username = preferences[USERNAME_KEY] ?: "",
+            email = preferences[EMAIL_KEY] ?: "",
+            nickname = preferences[USER_NICKNAME_KEY] ?: "",
+            description = preferences[USER_DESCRIPTION_KEY] ?: "",
+            userColor = preferences[USER_COLOR_KEY] ?: "#1E3A8A"
+        )
+    }
 }
 

@@ -151,10 +151,23 @@ fun GroupCard(
                     .height(120.dp)
             ) {
                 AsyncImage(
-                    model = group.coverUrl ?: "https://via.placeholder.com/500",
+                    model = androidx.compose.ui.platform.LocalContext.current.let { context ->
+                        coil.request.ImageRequest.Builder(context)
+                            .data(group.coverUrl)
+                            .crossfade(true)
+                            .listener(
+                                onError = { _, result ->
+                                    android.util.Log.e("CommunityImage", "Error loading image for group ${group.nome}: ${result.throwable.message}")
+                                }
+                            )
+                            .build()
+                    },
                     contentDescription = "Capa do Grupo",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    error = androidx.compose.ui.res.painterResource(com.crimetracker.app.R.drawable.ic_community_placeholder),
+                    fallback = androidx.compose.ui.res.painterResource(com.crimetracker.app.R.drawable.ic_community_placeholder),
+                    placeholder = androidx.compose.ui.res.painterResource(com.crimetracker.app.R.drawable.ic_community_placeholder)
                 )
             }
             Column(

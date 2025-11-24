@@ -2,6 +2,7 @@ package com.crimetracker.app.ui.screens.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.data.model.Report
 import com.crimetracker.app.data.repository.ReportRepository
 import com.crimetracker.app.util.Resource
@@ -20,16 +21,39 @@ data class MapUiState(
     val showHeatmap: Boolean = false,
     val filterType: String? = null,
     val userLocation: Pair<Double, Double>? = null,
-    val isSatelliteMode: Boolean = false
+    val isSatelliteMode: Boolean = false,
+    val isAutoDayNightEnabled: Boolean = true
 )
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    private val reportRepository: ReportRepository
+    private val reportRepository: ReportRepository,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
+
+    init {
+        // Carregar preferências do usuário
+        viewModelScope.launch {
+            launch {
+                userPreferences.mapType.collect { type ->
+                    _uiState.value = _uiState.value.copy(
+                        isSatelliteMode = type == "satellite"
+                    )
+                }
+            }
+            
+            launch {
+                userPreferences.autoDayNightMode.collect { enabled ->
+                    _uiState.value = _uiState.value.copy(
+                        isAutoDayNightEnabled = enabled
+                    )
+                }
+            }
+        }
+    }
 
     fun loadReports(latitude: Double, longitude: Double, radiusKm: Double = 5.0) {
         viewModelScope.launch {
@@ -180,9 +204,12 @@ class MapViewModel @Inject constructor(
     }
 
     fun toggleSatelliteMode() {
+        val newMode = !_uiState.value.isSatelliteMode
         _uiState.value = _uiState.value.copy(
-            isSatelliteMode = !_uiState.value.isSatelliteMode
+            isSatelliteMode = newMode
         )
+        viewModelScope.launch {
+            userPreferences.setMapType(if (newMode) "satellite" else "standard")
+        }
     }
 }
-
