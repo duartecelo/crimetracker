@@ -45,19 +45,15 @@ class ProfileViewModel @Inject constructor(
 
     private fun loadProfile() {
         viewModelScope.launch {
-            val username = userPreferences.username.first() ?: ""
-            val email = userPreferences.email.first() ?: ""
-            val nickname = userPreferences.userNickname.first() ?: ""
-            val description = userPreferences.userDescription.first() ?: ""
-            val userColor = userPreferences.userColor.first() ?: "#1E3A8A"
-            
-            _uiState.value = _uiState.value.copy(
-                username = username,
-                email = email,
-                nickname = nickname.ifEmpty { username },
-                description = description,
-                userColor = userColor
-            )
+            userPreferences.userProfile.collect { profile ->
+                _uiState.value = _uiState.value.copy(
+                    username = profile.username,
+                    email = profile.email,
+                    nickname = profile.nickname.ifEmpty { profile.username },
+                    description = profile.description,
+                    userColor = profile.userColor
+                )
+            }
         }
     }
 

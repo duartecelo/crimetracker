@@ -128,6 +128,12 @@ fun NavGraph(
                 onNavigateToGroup = { groupId ->
                     navController.navigate(Screen.GroupDetail.createRoute(groupId))
                 },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
+                },
+                onNavigateToEditProfile = {
+                    navController.navigate(Screen.EditProfile.route)
+                },
                 onReportClick = { reportId ->
                     // TODO: Navegar para detalhes do report
                 },
@@ -198,11 +204,20 @@ fun NavGraph(
         // Profile
         composable(Screen.Profile.route) {
             ProfileScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onNavigateToEditProfile = {
+                    navController.navigate(Screen.EditProfile.route)
+                }
+            )
+        }
+        
+        // Edit Profile
+        composable(Screen.EditProfile.route) {
+            com.crimetracker.app.ui.screens.profile.EditProfileScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

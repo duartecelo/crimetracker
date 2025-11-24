@@ -9,6 +9,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -49,6 +50,7 @@ fun MapScreen(
     val density = LocalDensity.current
     var showAbuseDialog by remember { mutableStateOf(false) }
     var mapViewRef: MapView? by remember { mutableStateOf(null) }
+    var quickReportLocation: GeoPoint? by remember { mutableStateOf(null) }
 
     // Fontes de mapa (Mundo todo)
     val standardSource = remember { TileSourceFactory.MAPNIK }
@@ -194,6 +196,28 @@ fun MapScreen(
                     
                     mapView = this
                     mapViewRef = this
+                    
+                    // Adicionar receiver para gestos (Long Press)
+                    val eventsReceiver = object : org.osmdroid.events.MapEventsReceiver {
+                        override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                            // Se tiver um quick report aberto, fechar ao clicar fora
+                            if (quickReportLocation != null) {
+                                quickReportLocation = null
+                                return true
+                            }
+                            return false
+                        }
+
+                        override fun longPressHelper(p: GeoPoint?): Boolean {
+                            // Ativar modo de report rápido
+                            p?.let {
+                                quickReportLocation = it
+                                // Vibrar para feedback tátil (opcional, requer contexto/permissão, ignorando por simplicidade)
+                            }
+                            return true
+                        }
+                    }
+                    this.overlays.add(org.osmdroid.views.overlay.MapEventsOverlay(eventsReceiver))
                 }
             },
             update = { view ->
@@ -206,7 +230,7 @@ fun MapScreen(
                 }
                 
                 // Aplicar filtro baseado em hora do dia (Auto Day/Night)
-                if (!uiState.isSatelliteMode) {
+                if (!uiState.isSatelliteMode && uiState.isAutoDayNightEnabled) {
                     val calendar = java.util.Calendar.getInstance()
                     val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
                     val isDaytime = hour in 6..17 // 6am-6pm = dia
@@ -249,15 +273,11 @@ fun MapScreen(
                     view.overlayManager.tilesOverlay.setColorFilter(null)
                 }
                 
-                // Limpar overlays (exceto rotação que é fixa)
-                view.overlays.removeIf { it !is org.osmdroid.views.overlay.gestures.RotationGestureOverlay }
+                // Limpar overlays (exceto outros overlays necessários)
+                // view.overlays.removeIf { it !is org.osmdroid.views.overlay.gestures.RotationGestureOverlay }
                 
-                // Adicionar overlay de rotação se não existir
-                if (view.overlays.none { it is org.osmdroid.views.overlay.gestures.RotationGestureOverlay }) {
-                    val rotationGestureOverlay = org.osmdroid.views.overlay.gestures.RotationGestureOverlay(view)
-                    rotationGestureOverlay.isEnabled = true
-                    view.overlays.add(rotationGestureOverlay)
-                }
+                // Rotação desabilitada conforme solicitado
+                view.overlays.removeIf { it is org.osmdroid.views.overlay.gestures.RotationGestureOverlay }
 
                 // Overlay de "Pulso" para localização do usuário (Efeito Waze/Radar)
                 if (uiState.userLocation != null) {
@@ -347,6 +367,32 @@ fun MapScreen(
                     view.overlays.add(marker)
                 }
                 
+                // Remover marcadores de Quick Report anteriores para evitar duplicatas e permitir remoção
+                view.overlays.removeIf { it is org.osmdroid.views.overlay.Marker && it.title == "Reportar Aqui" }
+
+                // Marcador de Quick Report (se ativo)
+                quickReportLocation?.let { location ->
+                    val quickMarker = org.osmdroid.views.overlay.Marker(view).apply {
+                        position = location
+                        title = "Reportar Aqui"
+                        snippet = "Clique para criar um alerta"
+                        
+                        // Ícone diferenciado (Azul/Ciano)
+                        icon = android.graphics.drawable.BitmapDrawable(
+                            context.resources,
+                            createBalloonBitmap("+", android.graphics.Color.CYAN)
+                        )
+                        
+                        setOnMarkerClickListener { _, _ ->
+                            onNavigateToCreateReport(location.latitude, location.longitude)
+                            quickReportLocation = null
+                            true
+                        }
+                    }
+                    view.overlays.add(quickMarker)
+                    view.invalidate()
+                }
+                
                 view.invalidate()
             },
             modifier = Modifier.fillMaxSize()
@@ -421,7 +467,7 @@ fun MapScreen(
                     Icon(
                         Icons.Default.MyLocation, 
                         "Minha localização",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }

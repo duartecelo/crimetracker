@@ -4,8 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,31 +19,22 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    onNavigateBack: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToEditProfile: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showNicknameDialog by remember { mutableStateOf(false) }
-    var showColorPicker by remember { mutableStateOf(false) }
-    var editingNickname by remember { mutableStateOf(uiState.nickname) }
-
-    // Cores pré-definidas compatíveis com a paleta
-    val availableColors = listOf(
-        "#1E3A8A", // Azul marinho
-        "#3B82F6", // Azul claro
-        "#60A5FA", // Azul destaque
-        "#10B981", // Verde
-        "#F59E0B"  // Laranja
-    )
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Perfil") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Voltar")
+                actions = {
+                    IconButton(onClick = onNavigateToEditProfile) {
+                        Icon(Icons.Default.Edit, "Editar Perfil")
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, "Configurações")
                     }
                 }
             )
@@ -65,38 +56,37 @@ fun ProfileScreen(
                 contentAlignment = Alignment.Center
             ) {
                 // Placeholder - em produção seria Image composable com foto do usuário
+                val userColor = try {
+                    Color(android.graphics.Color.parseColor(uiState.userColor))
+                } catch (e: Exception) {
+                    MaterialTheme.colorScheme.primary
+                }
+                
+                val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+                val borderColor = if (isDarkTheme) Color.White else Color.DarkGray
+                
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     shape = CircleShape,
-                    color = Color(android.graphics.Color.parseColor(uiState.userColor))
+                    color = userColor,
+                    border = androidx.compose.foundation.BorderStroke(2.dp, borderColor)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = uiState.nickname.take(1).uppercase(),
                             style = MaterialTheme.typography.displayMedium,
-                            color = Color.White
+                            color = if (com.crimetracker.app.util.ColorUtils.isDarkColor(userColor)) Color.White else Color.Black
                         )
                     }
                 }
             }
 
             // Nome/Apelido
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = uiState.nickname.ifEmpty { uiState.username },
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                IconButton(onClick = { 
-                    editingNickname = uiState.nickname.ifEmpty { uiState.username }
-                    showNicknameDialog = true 
-                }) {
-                    Icon(Icons.Default.Edit, "Editar apelido")
-                }
-            }
+            Text(
+                text = uiState.nickname.ifEmpty { uiState.username },
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
 
             // Email
             Text(
@@ -104,101 +94,63 @@ fun ProfileScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            
+            // Descrição
+            if (uiState.description.isNotEmpty()) {
+                Text(
+                    text = uiState.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Personalização
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            
+            Divider()
+            
+            // Posts
+            Text(
+                text = "Minhas Publicações",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.align(Alignment.Start)
+            )
+            
+            if (uiState.isLoadingPosts) {
+                CircularProgressIndicator()
+            } else if (uiState.posts.isEmpty()) {
+                Text(
+                    text = "Nenhuma publicação ainda.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "Personalização",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    // Cor de destaque
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Cor de destaque",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = "Escolha sua cor favorita",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    items(uiState.posts.size) { index ->
+                        val post = uiState.posts[index]
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
-                            availableColors.forEach { color ->
-                                Surface(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clickable { viewModel.updateUserColor(color) },
-                                    shape = CircleShape,
-                                    color = Color(android.graphics.Color.parseColor(color)),
-                                    border = if (uiState.userColor == color) {
-                                        androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                                    } else null
-                                ) {}
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = post.conteudo,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = post.createdAt,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
                 }
             }
-
-            // Configurações
-            Button(
-                onClick = onNavigateToSettings,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Configurações")
-            }
-        }
-
-        // Dialog para editar nickname
-        if (showNicknameDialog) {
-            AlertDialog(
-                onDismissRequest = { showNicknameDialog = false },
-                title = { Text("Editar Apelido") },
-                text = {
-                    OutlinedTextField(
-                        value = editingNickname,
-                        onValueChange = { 
-                            if (it.length <= 30) editingNickname = it 
-                        },
-                        label = { Text("Apelido") },
-                        modifier = Modifier.fillMaxWidth(),
-                        supportingText = { Text("${editingNickname.length}/30") }
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.updateNickname(editingNickname)
-                            showNicknameDialog = false
-                        }
-                    ) {
-                        Text("Salvar")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showNicknameDialog = false }) {
-                        Text("Cancelar")
-                    }
-                }
-            )
         }
     }
 }

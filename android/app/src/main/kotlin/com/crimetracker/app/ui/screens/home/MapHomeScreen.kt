@@ -11,6 +11,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.crimetracker.app.ui.screens.map.MapScreen
 import com.crimetracker.app.ui.screens.profile.ProfileInlineView
 
+import androidx.compose.runtime.saveable.rememberSaveable
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapHomeScreen(
@@ -19,10 +21,12 @@ fun MapHomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToCreateGroup: () -> Unit = {},
     onNavigateToGroup: (String) -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToEditProfile: () -> Unit = {},
     onReportClick: (String) -> Unit = {}, // reportId
     onLogout: () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -74,11 +78,10 @@ fun MapHomeScreen(
                 )
             }
             2 -> {
-                // Mostrar visualização direta do Perfil
-                ProfileInlineView(
-                    modifier = Modifier.padding(padding),
-                    onNavigateToFullProfile = onNavigateToProfile,
-                    onLogout = onLogout
+                // Mostrar visualização direta do Perfil (ProfileScreen)
+                com.crimetracker.app.ui.screens.profile.ProfileScreen(
+                    onNavigateToSettings = onNavigateToSettings,
+                    onNavigateToEditProfile = onNavigateToEditProfile
                 )
             }
         }
