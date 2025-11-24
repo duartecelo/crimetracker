@@ -40,7 +40,7 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 fun MapScreen(
     modifier: Modifier = Modifier,
     onReportClick: (Report) -> Unit = {},
-    onNavigateToCreateReport: () -> Unit = {},
+    onNavigateToCreateReport: (Double, Double) -> Unit = { _, _ -> },
     viewModel: MapViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -297,24 +297,45 @@ fun MapScreen(
                 }
                 
                 // Adicionar marcadores de crimes com visual moderno
+                // Adicionar marcadores de crimes com visual moderno
+                val usedLocations = mutableListOf<GeoPoint>()
+                
                 uiState.reports.forEach { report ->
+                    // Jitter logic for overlapping markers
+                    var lat = report.lat
+                    var lon = report.lon
+                    var point = GeoPoint(lat, lon)
+                    
+                    // Simple spiral/offset if location is already occupied
+                    var attempts = 0
+                    while (usedLocations.any { it.distanceToAsDouble(point) < 10.0 } && attempts < 10) { // < 10 meters
+                        val angle = (attempts * 45.0) * (Math.PI / 180.0)
+                        val offset = 0.00015 * (1 + attempts / 5) // ~15m offset, increasing
+                        lat += offset * Math.cos(angle)
+                        lon += offset * Math.sin(angle)
+                        point = GeoPoint(lat, lon)
+                        attempts++
+                    }
+                    usedLocations.add(point)
+
                     val marker = org.osmdroid.views.overlay.Marker(view).apply {
-                        position = GeoPoint(report.lat, report.lon)
+                        position = point
                         title = report.tipo
                         snippet = report.descricao.take(100)
                         
-                        // Define color based on report type
-                        val color = when (report.tipo.lowercase()) {
-                            "assalto", "roubo" -> android.graphics.Color.RED
-                            "furto" -> 0xFFFFA500.toInt() // Orange
-                            "agressão" -> 0xFF8B0000.toInt() // Dark Red
-                            else -> 0xFF555555.toInt() // Grey
+                        // Define color and symbol based on report type
+                        val (color, symbol) = when (report.tipo.lowercase()) {
+                            "roubo", "assalto" -> Pair(android.graphics.Color.RED, "!")
+                            "furto" -> Pair(0xFFFFA500.toInt(), "?") // Orange
+                            "agressão" -> Pair(0xFF8B0000.toInt(), "X") // Dark Red
+                            "homicídio" -> Pair(0xFF000000.toInt(), "†")
+                            else -> Pair(0xFF555555.toInt(), "i") // Grey
                         }
 
                         // Use custom icon
                         icon = android.graphics.drawable.BitmapDrawable(
                             context.resources,
-                            createBalloonBitmap(report.tipo, color)
+                            createBalloonBitmap(symbol, color)
                         )
 
                         setOnMarkerClickListener { _, _ ->
@@ -444,7 +465,14 @@ fun MapScreen(
 
         // FAB para criar denúncia (vermelho)
         FloatingActionButton(
-            onClick = onNavigateToCreateReport,
+            onClick = {
+                val center = mapViewRef?.mapCenter
+                if (center != null) {
+                    onNavigateToCreateReport(center.latitude, center.longitude)
+                } else {
+                    onNavigateToCreateReport(0.0, 0.0)
+                }
+            },
             modifier = Modifier
                 .align(androidx.compose.ui.Alignment.BottomEnd)
                 .padding(16.dp),

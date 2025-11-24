@@ -113,8 +113,8 @@ fun NavGraph(
         // Home - Tela principal com mapa
         composable(Screen.Home.route) {
             MapHomeScreen(
-                onNavigateToReportCrime = {
-                    navController.navigate(Screen.ReportCrime.route)
+                onNavigateToReportCrime = { lat, lon ->
+                    navController.navigate(Screen.ReportCrime.createRoute(lat, lon))
                 },
                 onNavigateToCommunity = {
                     navController.navigate(Screen.Community.route)
@@ -142,8 +142,8 @@ fun NavGraph(
         // Map standalone
         composable(Screen.Map.route) {
             MapScreen(
-                onNavigateToCreateReport = {
-                    navController.navigate(Screen.ReportCrime.route)
+                onNavigateToCreateReport = { lat, lon ->
+                    navController.navigate(Screen.ReportCrime.createRoute(lat, lon))
                 },
                 onReportClick = { report ->
                     // TODO: Navegar para detalhes do report
@@ -152,8 +152,18 @@ fun NavGraph(
         }
 
         // Report Crime
-        composable(Screen.ReportCrime.route) {
+        composable(
+            route = Screen.ReportCrime.route,
+            arguments = listOf(
+                navArgument("lat") { type = NavType.StringType; nullable = true },
+                navArgument("lon") { type = NavType.StringType; nullable = true }
+            )
+        ) { backStackEntry ->
+            val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull()
+            val lon = backStackEntry.arguments?.getString("lon")?.toDoubleOrNull()
             ReportCrimeScreen(
+                initialLat = lat,
+                initialLon = lon,
                 onNavigateBack = {
                     navController.popBackStack()
                 }

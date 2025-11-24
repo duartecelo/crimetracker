@@ -18,11 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.crimetracker.app.util.LocationHelper
 import kotlinx.coroutines.launch
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportCrimeScreen(
     onNavigateBack: () -> Unit,
+    initialLat: Double? = null,
+    initialLon: Double? = null,
     viewModel: ReportViewModel = hiltViewModel()
 ) {
     var tipo by remember { mutableStateOf("Roubo/Assalto com violência ou ameaça") }
@@ -30,10 +31,16 @@ fun ReportCrimeScreen(
     var expanded by remember { mutableStateOf(false) }
     var isAnonymous by remember { mutableStateOf(false) }
     var useCurrentLocation by remember { mutableStateOf(true) }
-    var manualLatitude by remember { mutableStateOf(0.0) }
-    var manualLongitude by remember { mutableStateOf(0.0) }
+    
+    // Initialize manual coords with passed values or 0.0
+    var manualLatitude by remember { mutableStateOf(initialLat ?: 0.0) }
+    var manualLongitude by remember { mutableStateOf(initialLon ?: 0.0) }
+    
     var currentLatitude by remember { mutableStateOf<Double?>(null) }
     var currentLongitude by remember { mutableStateOf<Double?>(null) }
+    
+    // State to control showing the picker
+    var showLocationPicker by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -52,7 +59,7 @@ fun ReportCrimeScreen(
     val crimeTypeMap = mapOf(
         "Roubo/Assalto com violência ou ameaça" to "Roubo",
         "Furto (sem violência)" to "Furto",
-        "Furto/Roubo de veículo" to "Roubo", // ou criar categoria específica no backend se necessário
+        "Furto/Roubo de veículo" to "Roubo",
         "Outros crimes patrimoniais" to "Outro"
     )
 
@@ -63,8 +70,11 @@ fun ReportCrimeScreen(
             if (location != null) {
                 currentLatitude = location.first
                 currentLongitude = location.second
-                manualLatitude = location.first
-                manualLongitude = location.second
+                // Initialize manual coords with current location if not set and no initial passed
+                if (manualLatitude == 0.0) {
+                    manualLatitude = location.first
+                    manualLongitude = location.second
+                }
             }
         }
     }
@@ -107,209 +117,214 @@ fun ReportCrimeScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Reportar Crime") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Voltar")
+    if (showLocationPicker) {
+        LocationPickerScreen(
+            initialLat = if (manualLatitude != 0.0) manualLatitude else (currentLatitude ?: -23.5505),
+            initialLon = if (manualLongitude != 0.0) manualLongitude else (currentLongitude ?: -46.6333),
+            onLocationSelected = { lat, lon ->
+                manualLatitude = lat
+                manualLongitude = lon
+                useCurrentLocation = false
+                showLocationPicker = false
+            },
+            onCancel = {
+                showLocationPicker = false
+            }
+        )
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Reportar Crime") },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, "Voltar")
+                        }
+                    }
+                )
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Tipo de Crime",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = tipo,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        crimeTypes.forEach { crimeType ->
+                            DropdownMenuItem(
+                                text = { Text(crimeType) },
+                                onClick = {
+                                    tipo = crimeType
+                                    expanded = false
+                                }
+                            )
+                        }
                     }
                 }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Tipo de Crime",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it }
-            ) {
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Descrição",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
                 OutlinedTextField(
-                    value = tipo,
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    value = descricao,
+                    onValueChange = { 
+                        if (it.length <= 500) descricao = it 
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor(),
-                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        .height(200.dp),
+                    placeholder = { Text("Descreva o que aconteceu...") },
+                    supportingText = { Text("${descricao.length}/500") },
+                    enabled = !uiState.isLoading
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Switch para modo anônimo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
-                    crimeTypes.forEach { crimeType ->
-                        DropdownMenuItem(
-                            text = { Text(crimeType) },
-                            onClick = {
-                                tipo = crimeType
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Descrição",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            OutlinedTextField(
-                value = descricao,
-                onValueChange = { 
-                    if (it.length <= 500) descricao = it 
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                placeholder = { Text("Descreva o que aconteceu...") },
-                supportingText = { Text("${descricao.length}/500") },
-                enabled = !uiState.isLoading
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Switch para modo anônimo
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Enviar como anônimo",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = "Sua identidade não será divulgada",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = isAnonymous,
-                    onCheckedChange = { isAnonymous = it }
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Seção de Localização
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (useCurrentLocation) Icons.Default.MyLocation else Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Column {
-                                Text(
-                                    text = if (useCurrentLocation) "Localização Atual" else "Posição Manual",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                val lat = if (useCurrentLocation) currentLatitude else manualLatitude
-                                val lon = if (useCurrentLocation) currentLongitude else manualLongitude
-                                if (lat != null && lon != null) {
-                                    Text(
-                                        text = "${String.format("%.4f", lat)}, ${String.format("%.4f", lon)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                        Switch(
-                            checked = !useCurrentLocation,
-                            onCheckedChange = { useCurrentLocation = !it }
-                        )
-                    }
-                    
-                    if (!useCurrentLocation) {
-                        HorizontalDivider()
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "💡 Dica: Posicione o marcador no mapa principal antes de criar a denúncia",
+                            text = "Enviar como anônimo",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = "Sua identidade não será divulgada",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    Switch(
+                        checked = isAnonymous,
+                        onCheckedChange = { isAnonymous = it }
+                    )
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Button(
-                onClick = {
-                    val lat: Double
-                    val lon: Double
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Seção de Localização
+                Text(
+                    text = "Localização",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Botão Localização Atual
+                    OutlinedButton(
+                        onClick = { useCurrentLocation = true },
+                        modifier = Modifier.weight(1f),
+                        colors = if (useCurrentLocation) 
+                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) 
+                        else ButtonDefaults.outlinedButtonColors()
+                    ) {
+                        Icon(Icons.Default.MyLocation, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Atual")
+                    }
                     
-                    if (useCurrentLocation) {
-                        if (currentLatitude != null && currentLongitude != null) {
-                            lat = currentLatitude!!
-                            lon = currentLongitude!!
-                            val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                            viewModel.createReport(backendTipo, descricao, lat, lon)
-                        } else if (LocationHelper.hasLocationPermission(context)) {
-                            scope.launch {
-                                val location = LocationHelper.getCurrentLocation(context)
-                                if (location != null) {
-                                    val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                                    viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                    // Botão Selecionar no Mapa
+                    OutlinedButton(
+                        onClick = { showLocationPicker = true },
+                        modifier = Modifier.weight(1f),
+                        colors = if (!useCurrentLocation) 
+                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) 
+                        else ButtonDefaults.outlinedButtonColors()
+                    ) {
+                        Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Mapa")
+                    }
+                }
+                
+                if (!useCurrentLocation) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Selecionado: ${String.format("%.4f", manualLatitude)}, ${String.format("%.4f", manualLongitude)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Button(
+                    onClick = {
+                        val lat: Double
+                        val lon: Double
+                        
+                        if (useCurrentLocation) {
+                            if (currentLatitude != null && currentLongitude != null) {
+                                lat = currentLatitude!!
+                                lon = currentLongitude!!
+                                val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                                viewModel.createReport(backendTipo, descricao, lat, lon)
+                            } else if (LocationHelper.hasLocationPermission(context)) {
+                                scope.launch {
+                                    val location = LocationHelper.getCurrentLocation(context)
+                                    if (location != null) {
+                                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                                        viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                                    }
                                 }
+                            } else {
+                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                             }
                         } else {
-                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            // Usar posição manual (do mapa)
+                            lat = manualLatitude
+                            lon = manualLongitude
+                            val backendTipo = crimeTypeMap[tipo] ?: "Outro"
+                            viewModel.createReport(backendTipo, descricao, lat, lon)
                         }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading && descricao.isNotBlank()
+                ) {
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
                     } else {
-                        // Usar posição manual (do mapa)
-                        lat = manualLatitude
-                        lon = manualLongitude
-                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                        viewModel.createReport(backendTipo, descricao, lat, lon)
+                        Text("Reportar")
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading && descricao.isNotBlank()
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("Reportar")
                 }
             }
         }
