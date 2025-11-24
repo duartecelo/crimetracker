@@ -14,7 +14,7 @@ import com.crimetracker.app.ui.screens.profile.ProfileInlineView
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapHomeScreen(
-    onNavigateToReportCrime: () -> Unit,
+    onNavigateToReportCrime: (Double, Double) -> Unit,
     onNavigateToCommunity: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToCreateGroup: () -> Unit = {},

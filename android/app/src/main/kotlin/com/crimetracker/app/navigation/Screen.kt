@@ -10,7 +10,9 @@ sealed class Screen(val route: String) {
     }
     object Home : Screen("home")
     object Map : Screen("map")
-    object ReportCrime : Screen("report_crime")
+    object ReportCrime : Screen("report_crime?lat={lat}&lon={lon}") {
+        fun createRoute(lat: Double, lon: Double) = "report_crime?lat=$lat&lon=$lon"
+    }
     object CreateGroup : Screen("create_group")
     object CreatePost : Screen("create_post/{groupId}") {
         fun createRoute(groupId: String) = "create_post/$groupId"
