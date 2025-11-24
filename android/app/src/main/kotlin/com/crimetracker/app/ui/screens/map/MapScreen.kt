@@ -374,39 +374,60 @@ fun MapScreen(
                         title = report.tipo
                         snippet = report.descricao.take(100)
                         
-                        // Define color and symbol based on report type (modern, tech-style)
+                        // Define color and symbol based on report type (unique for each subtype)
                         val (color, symbol) = when {
-                            // Check for exact matches first, then partial matches
-                            report.tipo.contains("Homicídio", ignoreCase = true) -> 
-                                Pair(0xFF000000.toInt(), "H") // Black - H de Homicídio
+                            // Homicídio - Preto
+                            report.tipo.contains("Homicídio", ignoreCase = true) || 
+                            report.tipo.contains("tentativa", ignoreCase = true) -> 
+                                Pair(0xFF000000.toInt(), "H")
                             
-                            report.tipo.contains("Sequestro", ignoreCase = true) -> 
-                                Pair(0xFF6A1B9A.toInt(), "S") // Purple - S de Sequestro
+                            // Sequestro - Roxo escuro
+                            report.tipo.contains("Sequestro", ignoreCase = true) || 
+                            report.tipo.contains("cárcere", ignoreCase = true) -> 
+                                Pair(0xFF6A1B9A.toInt(), "S")
                             
+                            // Furto de veículo - Laranja escuro
+                            report.tipo.contains("veículo", ignoreCase = true) && 
                             report.tipo.contains("Furto", ignoreCase = true) -> 
-                                Pair(0xFFFB8C00.toInt(), "F") // Orange - F de Furto
+                                Pair(0xFFEF6C00.toInt(), "🚗")
                             
+                            // Roubo de veículo - Vermelho escuro
+                            report.tipo.contains("veículo", ignoreCase = true) && 
+                            report.tipo.contains("Roubo", ignoreCase = true) -> 
+                                Pair(0xFFC62828.toInt(), "🚗")
+                            
+                            // Furto sem violência - Laranja
+                            report.tipo.contains("Furto", ignoreCase = true) -> 
+                                Pair(0xFFFB8C00.toInt(), "F")
+                            
+                            // Roubo/Assalto - Vermelho
                             report.tipo.contains("Roubo", ignoreCase = true) || 
                             report.tipo.contains("Assalto", ignoreCase = true) -> 
-                                Pair(0xFFE53935.toInt(), "R") // Red - R de Roubo
+                                Pair(0xFFE53935.toInt(), "R")
                             
+                            // Agressão - Vermelho médio
                             report.tipo.contains("Agressão", ignoreCase = true) || 
-                            report.tipo.contains("Violência", ignoreCase = true) -> 
-                                Pair(0xFFD32F2F.toInt(), "A") // Dark Red - A de Agressão
+                            report.tipo.contains("verbal", ignoreCase = true) -> 
+                                Pair(0xFFD32F2F.toInt(), "A")
                             
+                            // Tráfico - Verde escuro
                             report.tipo.contains("Tráfico", ignoreCase = true) || 
-                            report.tipo.contains("Drogas", ignoreCase = true) -> 
-                                Pair(0xFF00695C.toInt(), "T") // Teal - T de Tráfico
+                            report.tipo.contains("drogas", ignoreCase = true) -> 
+                                Pair(0xFF00695C.toInt(), "T")
                             
+                            // Vandalismo - Marrom
                             report.tipo.contains("Vandalismo", ignoreCase = true) || 
-                            report.tipo.contains("Dano", ignoreCase = true) -> 
-                                Pair(0xFF5D4037.toInt(), "V") // Brown - V de Vandalismo
+                            report.tipo.contains("dano", ignoreCase = true) || 
+                            report.tipo.contains("patrimônio", ignoreCase = true) -> 
+                                Pair(0xFF5D4037.toInt(), "V")
                             
+                            // Estelionato/Fraude - Laranja profundo
                             report.tipo.contains("Estelionato", ignoreCase = true) || 
-                            report.tipo.contains("Fraude", ignoreCase = true) -> 
-                                Pair(0xFFF57C00.toInt(), "E") // Deep Orange - E de Estelionato
+                            report.tipo.contains("fraude", ignoreCase = true) -> 
+                                Pair(0xFFF57C00.toInt(), "E")
                             
-                            else -> Pair(0xFF757575.toInt(), "?") // Grey - Outros
+                            // Outros - Cinza
+                            else -> Pair(0xFF757575.toInt(), "?")
                         }
 
                         // Use custom icon
@@ -696,12 +717,14 @@ fun MapScreen(
                             null to "Todos",
                             "Roubo/Assalto com violência ou ameaça" to "Roubo/Assalto",
                             "Furto sem violência" to "Furto",
+                            "Furto/Roubo de veículo" to "Furto/Roubo de veículo",
                             "Agressão física ou verbal" to "Agressão",
                             "Homicídio ou tentativa" to "Homicídio",
                             "Sequestro ou cárcere privado" to "Sequestro",
                             "Tráfico de drogas" to "Tráfico",
                             "Vandalismo ou dano ao patrimônio" to "Vandalismo",
-                            "Estelionato ou fraude" to "Estelionato"
+                            "Estelionato ou fraude" to "Estelionato",
+                            "Outros crimes" to "Outros"
                         )
                         
                         crimeTypes.forEach { (type, label) ->

@@ -63,7 +63,22 @@ class MapViewModel @Inject constructor(
                 is Resource.Success -> {
                     val reports = result.data ?: emptyList()
                     val filteredReports = if (_uiState.value.filterType != null) {
-                        reports.filter { it.tipo == _uiState.value.filterType }
+                        // Smart keyword-based filtering
+                        reports.filter { report ->
+                            when (_uiState.value.filterType) {
+                                "Furto/Roubo de veículo" -> 
+                                    report.tipo.contains("veículo", ignoreCase = true)
+                                "Roubo/Assalto com violência ou ameaça" -> 
+                                    (report.tipo.contains("Roubo", ignoreCase = true) || 
+                                     report.tipo.contains("Assalto", ignoreCase = true)) &&
+                                    !report.tipo.contains("veículo", ignoreCase = true)
+                                "Furto sem violência" -> 
+                                    report.tipo.contains("Furto", ignoreCase = true) &&
+                                    !report.tipo.contains("veículo", ignoreCase = true)
+                                else -> 
+                                    report.tipo.contains(_uiState.value.filterType!!, ignoreCase = true)
+                            }
+                        }
                     } else {
                         reports
                     }

@@ -54,20 +54,18 @@ fun ReportCrimeScreen(
     val userPreferences = remember { UserPreferences(context) }
     val mapTheme by userPreferences.mapTheme.collectAsState(initial = MapTheme.SYSTEM)
 
-    // Novas categorias unificadas
+    // Categorias expandidas de crimes
     val crimeTypes = listOf(
         "Roubo/Assalto com violência ou ameaça",
-        "Furto (sem violência)",
+        "Furto sem violência",
         "Furto/Roubo de veículo",
-        "Outros crimes patrimoniais"
-    )
-    
-    // Mapeamento para valores do backend
-    val crimeTypeMap = mapOf(
-        "Roubo/Assalto com violência ou ameaça" to "Roubo",
-        "Furto (sem violência)" to "Furto",
-        "Furto/Roubo de veículo" to "Roubo",
-        "Outros crimes patrimoniais" to "Outro"
+        "Agressão física ou verbal",
+        "Homicídio ou tentativa",
+        "Sequestro ou cárcere privado",
+        "Tráfico de drogas",
+        "Vandalismo ou dano ao patrimônio",
+        "Estelionato ou fraude",
+        "Outros crimes"
     )
 
     // Carregar localização atual ao abrir a tela
@@ -96,8 +94,7 @@ fun ReportCrimeScreen(
                     currentLatitude = location.first
                     currentLongitude = location.second
                     if (useCurrentLocation) {
-                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                        viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                        viewModel.createReport(tipo, descricao, location.first, location.second)
                     }
                 }
             }
@@ -271,21 +268,14 @@ fun ReportCrimeScreen(
                 
                 Button(
                     onClick = {
-                        val lat: Double
-                        val lon: Double
-                        
                         if (useCurrentLocation) {
                             if (currentLatitude != null && currentLongitude != null) {
-                                lat = currentLatitude!!
-                                lon = currentLongitude!!
-                                val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                                viewModel.createReport(backendTipo, descricao, lat, lon)
+                                viewModel.createReport(tipo, descricao, currentLatitude!!, currentLongitude!!)
                             } else if (LocationHelper.hasLocationPermission(context)) {
                                 scope.launch {
                                     val location = LocationHelper.getCurrentLocation(context)
                                     if (location != null) {
-                                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                                        viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                                        viewModel.createReport(tipo, descricao, location.first, location.second)
                                     }
                                 }
                             } else {
@@ -293,10 +283,7 @@ fun ReportCrimeScreen(
                             }
                         } else {
                             // Usar posição manual (do mapa)
-                            lat = manualLatitude
-                            lon = manualLongitude
-                            val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                            viewModel.createReport(backendTipo, descricao, lat, lon)
+                            viewModel.createReport(tipo, descricao, manualLatitude, manualLongitude)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
