@@ -1,39 +1,30 @@
 package com.crimetracker.app.ui.components
 
 import androidx.compose.ui.graphics.Color
-import com.crimetracker.app.data.model.Report
 
 /**
- * Retorna a cor para cada tipo de crime
+ * Retorna a cor padrão para cada tipo de crime (Backend Types)
  */
 fun getCrimeTypeColor(tipo: String): Color {
-    return when (tipo.lowercase()) {
-        "roubo/assalto com violência ou ameaça",
-        "roubo",
-        "assalto" -> Color(0xFFDC2626) // Vermelho - crimes violentos
-        
-        "furto (sem violência)",
-        "furto" -> Color(0xFFF59E0B) // Laranja - furtos
-        
-        "furto/roubo de veículo",
-        "roubo de veículo" -> Color(0xFFEAB308) // Amarelo - suspeitas
-        
-        "outros crimes patrimoniais",
-        "outro" -> Color(0xFF3B82F6) // Azul - avisos e informações
-        
-        else -> Color(0xFF6B7280) // Cinza - padrão
+    return when (tipo.lowercase().trim()) {
+        "assalto" -> Color(0xFFD32F2F)    // Vermelho Sangue
+        "roubo" -> Color(0xFFC62828)      // Vermelho Escuro
+        "furto" -> Color(0xFFF57C00)      // Laranja
+        "agressão", "agressao" -> Color(0xFFC2185B) // Rosa/Roxo
+        "vandalismo" -> Color(0xFF5D4037) // Marrom
+        "homicídio", "homicidio" -> Color(0xFF000000) // Preto
+        "tráfico", "trafico" -> Color(0xFF2E7D32) // Verde
+        else -> Color(0xFF1976D2)         // Azul (Outros)
     }
 }
 
-/**
- * Retorna a cor para o heatmap baseado na intensidade
- */
-fun getCrimeHeatColor(intensity: Int): Color {
-    return when {
-        intensity >= 10 -> Color(0xFFDC2626) // Vermelho intenso
-        intensity >= 5 -> Color(0xFFF59E0B) // Laranja
-        intensity >= 3 -> Color(0xFFEAB308) // Amarelo
-        else -> Color(0xFF3B82F6) // Azul leve
-    }
+// Função auxiliar para converter Color do Compose para Int (para o OSMDroid)
+fun getCrimeTypeColorInt(tipo: String): Int {
+    val color = getCrimeTypeColor(tipo)
+    return android.graphics.Color.argb(
+        (color.alpha * 255).toInt(),
+        (color.red * 255).toInt(),
+        (color.green * 255).toInt(),
+        (color.blue * 255).toInt()
+    )
 }
-

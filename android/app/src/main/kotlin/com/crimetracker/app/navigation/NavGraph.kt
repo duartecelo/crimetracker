@@ -227,6 +227,11 @@ fun NavGraph(
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onSignOut = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
                 }
             )
         }

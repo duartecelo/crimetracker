@@ -2,6 +2,7 @@ package com.crimetracker.app.ui.screens.report
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.data.model.Report
 import com.crimetracker.app.data.repository.ReportRepository
 import com.crimetracker.app.util.Resource
@@ -9,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,7 +23,8 @@ data class ReportUiState(
 
 @HiltViewModel
 class ReportViewModel @Inject constructor(
-    private val reportRepository: ReportRepository
+    private val reportRepository: ReportRepository,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReportUiState())
@@ -46,7 +49,9 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            when (val result = reportRepository.createReport(tipo, descricao, latitude, longitude)) {
+            val isAnonymous = userPreferences.anonymousModeDefault.first()
+            
+            when (val result = reportRepository.createReport(tipo, descricao, latitude, longitude, isAnonymous)) {
                 is Resource.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,

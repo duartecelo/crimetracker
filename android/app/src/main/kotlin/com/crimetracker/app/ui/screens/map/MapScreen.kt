@@ -9,12 +9,17 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -25,9 +30,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.crimetracker.app.data.local.MapTheme
+import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.data.model.Report
 import com.crimetracker.app.ui.components.ReportFeedbackSection
 import com.crimetracker.app.ui.components.ReportAbuseDialog
+import com.crimetracker.app.ui.components.getCrimeTypeColor
+import com.crimetracker.app.ui.components.getCrimeTypeColorInt
 import com.crimetracker.app.util.LocationHelper
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -49,11 +58,47 @@ fun MapScreen(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     var showAbuseDialog by remember { mutableStateOf(false) }
+    var showFilterDialog by remember { mutableStateOf(false) }
     var mapViewRef: MapView? by remember { mutableStateOf(null) }
     var quickReportLocation: GeoPoint? by remember { mutableStateOf(null) }
+    
+    // Get map theme from preferences
+    val userPreferences = remember { UserPreferences(context) }
+    val mapTheme by userPreferences.mapTheme.collectAsState(initial = MapTheme.SYSTEM)
+    val isSystemDark = isSystemInDarkTheme()
+    
+    // Determine if map should be dark
+    val isDarkMap = when (mapTheme) {
+        MapTheme.LIGHT -> false
+        MapTheme.DARK -> true
+        MapTheme.SYSTEM -> isSystemDark
+        MapTheme.AUTO -> {
+            val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT-3"))
+            val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+            hour < 6 || hour >= 18
+        }
+    }
 
-    // Fontes de mapa (Mundo todo)
+    // Fontes de mapa
     val standardSource = remember { TileSourceFactory.MAPNIK }
+    val darkSource = remember {
+        object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
+            "CartoDB Dark Matter",
+            0, 20, 256, ".png",
+            arrayOf(
+                "https://a.basemaps.cartocdn.com/dark_all/",
+                "https://b.basemaps.cartocdn.com/dark_all/",
+                "https://c.basemaps.cartocdn.com/dark_all/",
+                "https://d.basemaps.cartocdn.com/dark_all/"
+            )
+        ) {
+            override fun getTileURLString(pMapTileIndex: Long): String {
+                return baseUrl + org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) +
+                        "/" + org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) +
+                        "/" + org.osmdroid.util.MapTileIndex.getX(pMapTileIndex) + mImageFilenameEnding
+            }
+        }
+    }
     val satelliteSource = remember {
         object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
             "Esri World Imagery",
@@ -90,6 +135,8 @@ fun MapScreen(
     }
 
     // Carregar localização inicial
+    var hasCentered by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         if (LocationHelper.hasLocationPermission(context)) {
             val location = LocationHelper.getCurrentLocation(context)
@@ -99,6 +146,16 @@ fun MapScreen(
             }
         } else {
             locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    // Centralizar mapa quando a localização for obtida pela primeira vez nesta sessão
+    LaunchedEffect(uiState.userLocation, mapViewRef) {
+        if (!hasCentered && uiState.userLocation != null && mapViewRef != null) {
+            val (lat, lon) = uiState.userLocation!!
+            mapViewRef?.controller?.animateTo(GeoPoint(lat, lon))
+            mapViewRef?.controller?.setZoom(17.0)
+            hasCentered = true
         }
     }
 
@@ -189,10 +246,14 @@ fun MapScreen(
                     setMultiTouchControls(true)
                     setBuiltInZoomControls(false) // Desabilitar botões padrão do OSMDroid
                     
-                    // Localização inicial (São Paulo)
-                    val initialLocation = GeoPoint(-23.5505, -46.6333)
+                    // Localização inicial (Usuário ou SP)
+                    val initialLocation = if (uiState.userLocation != null) {
+                        GeoPoint(uiState.userLocation!!.first, uiState.userLocation!!.second)
+                    } else {
+                        GeoPoint(-23.5505, -46.6333)
+                    }
                     controller.setCenter(initialLocation)
-                    controller.setZoom(15.0)
+                    controller.setZoom(17.0)
                     
                     mapView = this
                     mapViewRef = this
@@ -221,7 +282,7 @@ fun MapScreen(
                 }
             },
             update = { view ->
-                // Configurar tiles apenas se mudar
+                // Configurar tiles baseado no modo satélite
                 val currentTileSource = view.tileProvider.tileSource
                 val targetTileSource = if (uiState.isSatelliteMode) satelliteSource else standardSource
                 
@@ -229,46 +290,38 @@ fun MapScreen(
                     view.setTileSource(targetTileSource)
                 }
                 
-                // Aplicar filtro baseado em hora do dia (Auto Day/Night)
-                if (!uiState.isSatelliteMode && uiState.isAutoDayNightEnabled) {
-                    val calendar = java.util.Calendar.getInstance()
-                    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-                    val isDaytime = hour in 6..17 // 6am-6pm = dia
+                // Apply dark mode filter if needed (only for non-satellite mode)
+                if (!uiState.isSatelliteMode && isDarkMap) {
+                    val matrix = android.graphics.ColorMatrix()
+                    // Invert colors
+                    val invert = floatArrayOf(
+                        -1f,  0f,  0f, 0f, 255f,
+                         0f, -1f,  0f, 0f, 255f,
+                         0f,  0f, -1f, 0f, 255f,
+                         0f,  0f,  0f, 1f,   0f
+                    )
+                    matrix.set(invert)
                     
-                    if (isDaytime) {
-                        // Modo dia: sem filtro (mapa padrão claro)
-                        view.overlayManager.tilesOverlay.setColorFilter(null)
-                    } else {
-                        // Modo noite: filtro escuro clean
-                        val matrix = android.graphics.ColorMatrix()
-                        // 1. Inverter cores para base escura
-                        val invert = floatArrayOf(
-                            -1f,  0f,  0f, 0f, 255f,
-                             0f, -1f,  0f, 0f, 255f,
-                             0f,  0f, -1f, 0f, 255f,
-                             0f,  0f,  0f, 1f,   0f
-                        )
-                        matrix.set(invert)
-                        
-                        // 2. Desaturar para evitar cores gritantes
-                        val sat = android.graphics.ColorMatrix()
-                        sat.setSaturation(0.3f) 
-                        matrix.postConcat(sat)
-                        
-                        // 3. Ajuste de brilho/contraste
-                        val contrast = android.graphics.ColorMatrix()
-                        val scale = 0.9f
-                        val contrastArray = floatArrayOf(
-                            scale, 0f, 0f, 0f, -10f,
-                            0f, scale, 0f, 0f, -10f,
-                            0f, 0f, scale + 0.1f, 0f, 0f,
-                            0f, 0f, 0f, 1f, 0f
-                        )
-                        contrast.set(contrastArray)
-                        matrix.postConcat(contrast)
-
-                        view.overlayManager.tilesOverlay.setColorFilter(android.graphics.ColorMatrixColorFilter(matrix))
-                    }
+                    // Reduce saturation for better dark mode
+                    val sat = android.graphics.ColorMatrix()
+                    sat.setSaturation(0.4f)
+                    matrix.postConcat(sat)
+                    
+                    // Adjust brightness
+                    val brightness = android.graphics.ColorMatrix()
+                    val scale = 0.85f
+                    val brightnessArray = floatArrayOf(
+                        scale, 0f, 0f, 0f, -15f,
+                        0f, scale, 0f, 0f, -15f,
+                        0f, 0f, scale + 0.1f, 0f, -5f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                    brightness.set(brightnessArray)
+                    matrix.postConcat(brightness)
+                    
+                    view.overlayManager.tilesOverlay.setColorFilter(
+                        android.graphics.ColorMatrixColorFilter(matrix)
+                    )
                 } else {
                     view.overlayManager.tilesOverlay.setColorFilter(null)
                 }
@@ -316,7 +369,9 @@ fun MapScreen(
                     view.overlays.add(pulseOverlay)
                 }
                 
-                // Adicionar marcadores de crimes com visual moderno
+                // Limpar TODOS os marcadores antigos antes de adicionar os novos
+                view.overlays.removeIf { it is org.osmdroid.views.overlay.Marker }
+
                 // Adicionar marcadores de crimes com visual moderno
                 val usedLocations = mutableListOf<GeoPoint>()
                 
@@ -341,22 +396,21 @@ fun MapScreen(
                     val marker = org.osmdroid.views.overlay.Marker(view).apply {
                         position = point
                         title = report.tipo
-                        snippet = report.descricao.take(100)
-                        
-                        // Define color and symbol based on report type
-                        val (color, symbol) = when (report.tipo.lowercase()) {
-                            "roubo", "assalto" -> Pair(android.graphics.Color.RED, "!")
-                            "furto" -> Pair(0xFFFFA500.toInt(), "?") // Orange
-                            "agressão" -> Pair(0xFF8B0000.toInt(), "X") // Dark Red
-                            "homicídio" -> Pair(0xFF000000.toInt(), "†")
-                            else -> Pair(0xFF555555.toInt(), "i") // Grey
-                        }
+                        snippet = report.descricao
 
-                        // Use custom icon
+                        // VISUALIZAÇÃO LIMPA: Cor + Inicial
+                        val colorInt = getCrimeTypeColorInt(report.tipo)
+                        
+                        // Pega a primeira letra, ex: "A" para Assalto, "F" para Furto
+                        val initial = report.tipo.firstOrNull()?.uppercase() ?: "?"
+
+                        // Cria o balão apenas com a letra e a cor certa
                         icon = android.graphics.drawable.BitmapDrawable(
                             context.resources,
-                            createBalloonBitmap(symbol, color)
+                            createBalloonBitmap(initial, colorInt)
                         )
+                        
+                        setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM)
 
                         setOnMarkerClickListener { _, _ ->
                             viewModel.selectReport(report)
@@ -367,9 +421,6 @@ fun MapScreen(
                     view.overlays.add(marker)
                 }
                 
-                // Remover marcadores de Quick Report anteriores para evitar duplicatas e permitir remoção
-                view.overlays.removeIf { it is org.osmdroid.views.overlay.Marker && it.title == "Reportar Aqui" }
-
                 // Marcador de Quick Report (se ativo)
                 quickReportLocation?.let { location ->
                     val quickMarker = org.osmdroid.views.overlay.Marker(view).apply {
@@ -390,7 +441,6 @@ fun MapScreen(
                         }
                     }
                     view.overlays.add(quickMarker)
-                    view.invalidate()
                 }
                 
                 view.invalidate()
@@ -430,8 +480,12 @@ fun MapScreen(
 
             // Botão de filtros
             SmallFloatingActionButton(
-                onClick = { /* Filtros */ },
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                onClick = { showFilterDialog = true },
+                containerColor = if (uiState.filterType != null) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                },
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 2.dp,
                     pressedElevation = 4.dp
@@ -440,7 +494,10 @@ fun MapScreen(
                 Icon(
                     Icons.Default.FilterList, 
                     "Filtros",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = if (uiState.filterType != null)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -614,6 +671,78 @@ fun MapScreen(
                     scope.launch {
                         viewModel.reportAbuse(uiState.selectedReport!!.id, reason, description)
                         showAbuseDialog = false
+                    }
+                }
+            )
+        }
+        
+        // Dialog de filtros
+        if (showFilterDialog) {
+            // Configuração da Lista de Filtros (Chave Backend -> Texto Exibição)
+            val crimeFilters = listOf(
+                null to "Todos",
+                "Assalto" to "Assalto (Violência)",
+                "Roubo" to "Roubo (Veículo/Outros)",
+                "Furto" to "Furto (Sem violência)",
+                "Agressão" to "Agressão",
+                "Vandalismo" to "Vandalismo",
+                "Outro" to "Outros"
+            )
+            
+            AlertDialog(
+                onDismissRequest = { showFilterDialog = false },
+                title = { Text("Filtrar por Categoria") },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    ) {
+                        crimeFilters.forEach { (typeKey, label) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setFilter(typeKey)
+                                        // Recarrega aplicando o filtro na lista local
+                                        uiState.userLocation?.let { (lat, lon) ->
+                                            viewModel.loadReports(lat, lon)
+                                        }
+                                        showFilterDialog = false
+                                    }
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = uiState.filterType == typeKey,
+                                    onClick = null // O clique é tratado na Row
+                                )
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                // Indicador visual de cor (exceto para "Todos")
+                                if (typeKey != null) {
+                                    Surface(
+                                        modifier = Modifier.size(16.dp),
+                                        shape = CircleShape,
+                                        color = getCrimeTypeColor(typeKey)
+                                    ) {}
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                } else {
+                                    // Espaço vazio para alinhar "Todos"
+                                    Spacer(modifier = Modifier.width(28.dp))
+                                }
+                                
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFilterDialog = false }) {
+                        Text("Fechar")
                     }
                 }
             )

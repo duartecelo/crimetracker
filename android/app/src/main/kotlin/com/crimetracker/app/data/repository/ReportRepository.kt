@@ -23,11 +23,12 @@ class ReportRepository @Inject constructor(
         tipo: String,
         descricao: String,
         latitude: Double,
-        longitude: Double
+        longitude: Double,
+        isAnonymous: Boolean
     ): Resource<Report> {
         return try {
             val response = apiService.createReport(
-                CreateReportRequest(tipo, descricao, latitude, longitude)
+                CreateReportRequest(tipo, descricao, latitude, longitude, isAnonymous)
             )
             
             if (response.isSuccessful && response.body() != null) {

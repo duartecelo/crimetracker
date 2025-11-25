@@ -62,8 +62,14 @@ class MapViewModel @Inject constructor(
             when (val result = reportRepository.getNearbyReports(latitude, longitude, radiusKm)) {
                 is Resource.Success -> {
                     val reports = result.data ?: emptyList()
+                    
+                    // Lógica de Filtro Simplificada e Robusta
                     val filteredReports = if (_uiState.value.filterType != null) {
-                        reports.filter { it.tipo == _uiState.value.filterType }
+                        val filter = _uiState.value.filterType!!.lowercase()
+                        reports.filter { report ->
+                            // Compara o tipo salvo no banco com o filtro selecionado
+                            report.tipo.lowercase() == filter
+                        }
                     } else {
                         reports
                     }

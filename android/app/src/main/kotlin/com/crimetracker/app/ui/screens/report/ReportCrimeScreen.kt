@@ -16,8 +16,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.crimetracker.app.data.local.MapTheme
+import com.crimetracker.app.data.local.UserPreferences
 import com.crimetracker.app.util.LocationHelper
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+// Helper function to convert UI crime types to backend-accepted types
+fun getBackendCrimeType(uiCategory: String): String {
+    return when (uiCategory) {
+        "Roubo/Assalto com violência ou ameaça" -> "Assalto"
+        "Furto sem violência" -> "Furto"
+        "Furto/Roubo de veículo" -> "Roubo"
+        "Agressão física ou verbal" -> "Agressão"
+        "Homicídio ou tentativa" -> "Agressão"
+        "Sequestro ou cárcere privado" -> "Agressão"
+        "Tráfico de drogas" -> "Outro"
+        "Vandalismo ou dano ao patrimônio" -> "Vandalismo"
+        "Estelionato ou fraude" -> "Outro"
+        "Outros crimes" -> "Outro"
+        else -> "Outro"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportCrimeScreen(
@@ -29,7 +50,7 @@ fun ReportCrimeScreen(
     var tipo by remember { mutableStateOf("Roubo/Assalto com violência ou ameaça") }
     var descricao by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
-    var isAnonymous by remember { mutableStateOf(false) }
+
     var useCurrentLocation by remember { mutableStateOf(true) }
     
     // Initialize manual coords with passed values or 0.0
@@ -46,21 +67,23 @@ fun ReportCrimeScreen(
     val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Get map theme from preferences (reactive)
+    val userPreferences = remember { UserPreferences(context) }
+    val mapTheme by userPreferences.mapTheme.collectAsState(initial = MapTheme.SYSTEM)
 
-    // Novas categorias unificadas
+    // Categorias expandidas de crimes
     val crimeTypes = listOf(
         "Roubo/Assalto com violência ou ameaça",
-        "Furto (sem violência)",
+        "Furto sem violência",
         "Furto/Roubo de veículo",
-        "Outros crimes patrimoniais"
-    )
-    
-    // Mapeamento para valores do backend
-    val crimeTypeMap = mapOf(
-        "Roubo/Assalto com violência ou ameaça" to "Roubo",
-        "Furto (sem violência)" to "Furto",
-        "Furto/Roubo de veículo" to "Roubo",
-        "Outros crimes patrimoniais" to "Outro"
+        "Agressão física ou verbal",
+        "Homicídio ou tentativa",
+        "Sequestro ou cárcere privado",
+        "Tráfico de drogas",
+        "Vandalismo ou dano ao patrimônio",
+        "Estelionato ou fraude",
+        "Outros crimes"
     )
 
     // Carregar localização atual ao abrir a tela
@@ -89,8 +112,8 @@ fun ReportCrimeScreen(
                     currentLatitude = location.first
                     currentLongitude = location.second
                     if (useCurrentLocation) {
-                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                        viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                        val backendType = getBackendCrimeType(tipo)
+                        viewModel.createReport(backendType, descricao, location.first, location.second)
                     }
                 }
             }
@@ -121,6 +144,7 @@ fun ReportCrimeScreen(
         LocationPickerScreen(
             initialLat = if (manualLatitude != 0.0) manualLatitude else (currentLatitude ?: -23.5505),
             initialLon = if (manualLongitude != 0.0) manualLongitude else (currentLongitude ?: -46.6333),
+            mapTheme = mapTheme,
             onLocationSelected = { lat, lon ->
                 manualLatitude = lat
                 manualLongitude = lon
@@ -210,30 +234,7 @@ fun ReportCrimeScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Switch para modo anônimo
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Enviar como anônimo",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = "Sua identidade não será divulgada",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = isAnonymous,
-                        onCheckedChange = { isAnonymous = it }
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
+
                 
                 // Seção de Localização
                 Text(
@@ -247,29 +248,63 @@ fun ReportCrimeScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Botão Localização Atual
-                    OutlinedButton(
-                        onClick = { useCurrentLocation = true },
-                        modifier = Modifier.weight(1f),
-                        colors = if (useCurrentLocation) 
-                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) 
-                        else ButtonDefaults.outlinedButtonColors()
-                    ) {
-                        Icon(Icons.Default.MyLocation, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Atual")
+                    if (useCurrentLocation) {
+                        Button(
+                            onClick = { useCurrentLocation = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(Icons.Default.MyLocation, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Atual", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { useCurrentLocation = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(Icons.Default.MyLocation, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Atual")
+                        }
                     }
                     
                     // Botão Selecionar no Mapa
-                    OutlinedButton(
-                        onClick = { showLocationPicker = true },
-                        modifier = Modifier.weight(1f),
-                        colors = if (!useCurrentLocation) 
-                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) 
-                        else ButtonDefaults.outlinedButtonColors()
-                    ) {
-                        Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Mapa")
+                    if (!useCurrentLocation) {
+                        Button(
+                            onClick = { showLocationPicker = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Mapa", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showLocationPicker = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Mapa")
+                        }
                     }
                 }
                 
@@ -286,21 +321,16 @@ fun ReportCrimeScreen(
                 
                 Button(
                     onClick = {
-                        val lat: Double
-                        val lon: Double
-                        
                         if (useCurrentLocation) {
                             if (currentLatitude != null && currentLongitude != null) {
-                                lat = currentLatitude!!
-                                lon = currentLongitude!!
-                                val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                                viewModel.createReport(backendTipo, descricao, lat, lon)
+                                val backendType = getBackendCrimeType(tipo)
+                                viewModel.createReport(backendType, descricao, currentLatitude!!, currentLongitude!!)
                             } else if (LocationHelper.hasLocationPermission(context)) {
                                 scope.launch {
                                     val location = LocationHelper.getCurrentLocation(context)
                                     if (location != null) {
-                                        val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                                        viewModel.createReport(backendTipo, descricao, location.first, location.second)
+                                        val backendType = getBackendCrimeType(tipo)
+                                        viewModel.createReport(backendType, descricao, location.first, location.second)
                                     }
                                 }
                             } else {
@@ -308,22 +338,29 @@ fun ReportCrimeScreen(
                             }
                         } else {
                             // Usar posição manual (do mapa)
-                            lat = manualLatitude
-                            lon = manualLongitude
-                            val backendTipo = crimeTypeMap[tipo] ?: "Outro"
-                            viewModel.createReport(backendTipo, descricao, lat, lon)
+                            val backendType = getBackendCrimeType(tipo)
+                            viewModel.createReport(backendType, descricao, manualLatitude, manualLongitude)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
                     enabled = !uiState.isLoading && descricao.isNotBlank()
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onError
                         )
                     } else {
-                        Text("Reportar")
+                        Text(
+                            "REPORTAR CRIME",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
                     }
                 }
             }
