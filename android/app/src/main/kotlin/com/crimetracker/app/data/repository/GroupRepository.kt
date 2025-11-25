@@ -62,7 +62,15 @@ class GroupRepository @Inject constructor(
             
             if (response.isSuccessful && response.body() != null) {
                 val groups = response.body()!!.data
-                groupDao.insertGroups(groups.map { it.toEntity() })
+                
+                // Preserve local membership status
+                val currentMemberIds = groupDao.getMyGroups().firstOrNull()?.map { it.id }?.toSet() ?: emptySet()
+                val entities = groups.map { group ->
+                    val isMember = group.isMember || currentMemberIds.contains(group.id)
+                    group.toEntity(isMember = isMember)
+                }
+                
+                groupDao.insertGroups(entities)
                 Resource.Success(groups)
             } else {
                 val errorMsg = when (response.code()) {

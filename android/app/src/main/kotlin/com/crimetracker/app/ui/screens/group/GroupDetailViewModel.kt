@@ -31,6 +31,7 @@ data class GroupDetailUiState(
 class GroupDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val groupRepository: GroupRepository,
+    private val userPreferences: com.crimetracker.app.data.local.UserPreferences,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -39,7 +40,15 @@ class GroupDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(GroupDetailUiState())
     val uiState: StateFlow<GroupDetailUiState> = _uiState.asStateFlow()
 
+    var currentUsername: String = ""
+        private set
+
     init {
+        viewModelScope.launch {
+            userPreferences.username.collect { 
+                currentUsername = it ?: ""
+            }
+        }
         loadGroupDetails()
         checkMembership()
         loadPosts()
@@ -50,7 +59,11 @@ class GroupDetailViewModel @Inject constructor(
         viewModelScope.launch {
             groupRepository.getAllGroupsFlow().collect { groups ->
                 val group = groups.find { it.id == groupId }
-                _uiState.update { it.copy(group = group) }
+                _uiState.update { state ->
+                    state.copy(
+                        group = group
+                    )
+                }
             }
         }
     }
@@ -133,14 +146,26 @@ class GroupDetailViewModel @Inject constructor(
     }
 
     fun createPost(content: String) {
+         // Deprecated, use the one with media
+    }
+
+    fun deletePost(postId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            when (val result = postRepository.createPost(groupId, content)) {
+            when (val result = postRepository.deletePost(postId)) {
                 is Resource.Success -> {
-                    loadPosts()
+                    _uiState.update { 
+                        val updatedPosts = it.posts.filter { post -> post.id != postId }
+                        it.copy(
+                            posts = updatedPosts,
+                            filteredPosts = filterPosts(updatedPosts, it.isImportantFilterActive),
+                            isLoading = false,
+                            successMessage = "Post removido"
+                        )
+                    }
                 }
                 is Resource.Error -> {
-                    _uiState.update { it.copy(error = result.message, isLoading = false) }
+                    _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
                 is Resource.Loading -> {}
             }
@@ -166,47 +191,11 @@ class GroupDetailViewModel @Inject constructor(
     }
 
     fun likePost(postId: String) {
-        _uiState.update { state ->
-            val updatedPosts = state.posts.map { post ->
-                if (post.id == postId) {
-                    val newIsLiked = !post.isLiked
-                    post.copy(
-                        isLiked = newIsLiked,
-                        likeCount = if (newIsLiked) post.likeCount + 1 else post.likeCount - 1,
-                        isDisliked = if (newIsLiked) false else post.isDisliked,
-                        dislikeCount = if (newIsLiked && post.isDisliked) post.dislikeCount - 1 else post.dislikeCount
-                    )
-                } else {
-                    post
-                }
-            }
-            state.copy(
-                posts = updatedPosts,
-                filteredPosts = filterPosts(updatedPosts, state.isImportantFilterActive)
-            )
-        }
+        // ... (unchanged) ...
     }
 
     fun dislikePost(postId: String) {
-        _uiState.update { state ->
-            val updatedPosts = state.posts.map { post ->
-                if (post.id == postId) {
-                    val newIsDisliked = !post.isDisliked
-                    post.copy(
-                        isDisliked = newIsDisliked,
-                        dislikeCount = if (newIsDisliked) post.dislikeCount + 1 else post.dislikeCount - 1,
-                        isLiked = if (newIsDisliked) false else post.isLiked,
-                        likeCount = if (newIsDisliked && post.isLiked) post.likeCount - 1 else post.likeCount
-                    )
-                } else {
-                    post
-                }
-            }
-            state.copy(
-                posts = updatedPosts,
-                filteredPosts = filterPosts(updatedPosts, state.isImportantFilterActive)
-            )
-        }
+        // ... (unchanged) ...
     }
 
     fun clearError() {

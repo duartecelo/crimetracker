@@ -70,10 +70,13 @@ interface ApiService {
     suspend fun getGroupMembers(@Path("id") groupId: String): Response<GroupMembersResponse>
     
     // FEED
+    @Multipart
     @POST("api/groups/{group_id}/posts")
     suspend fun createPost(
         @Path("group_id") groupId: String,
-        @Body request: CreatePostRequest
+        @Part("conteudo") conteudo: okhttp3.RequestBody,
+        @Part("is_important") isImportant: okhttp3.RequestBody,
+        @Part media: okhttp3.MultipartBody.Part? = null
     ): Response<PostResponse>
     
     @GET("api/groups/{group_id}/posts")

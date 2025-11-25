@@ -104,12 +104,16 @@ dependencies {
     
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Image Cropper
+    implementation("com.vanniktech:android-image-cropper:4.6.0")
     
     // Room for local caching
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+    
 
     // Testing
     testImplementation("junit:junit:4.13.2")
