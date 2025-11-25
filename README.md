@@ -1,4 +1,4 @@
-# 🛡️ CrimeTracker 🛡️
+# 🛡️ CrimeTracker 
 Fortalecer comunidades através da segurança colaborativa.
 
 O CrimeTracker é uma solução completa de segurança comunitária desenjada para capacitar cidadãos a monitorizar e reportar incidentes nos seus bairros. Com uma arquitetura robusta e foco na privacidade, o sistema opera com um backend local e uma aplicação Android nativa, utilizando mapas open-source para garantir que a informação crítica permanece acessível.
