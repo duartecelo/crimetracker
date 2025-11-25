@@ -1,116 +1,155 @@
 # 🛡️ CrimeTracker
+Fortalecer comunidades através da segurança colaborativa.
 
-**Fortalecendo comunidades através da segurança colaborativa.**
+O CrimeTracker é uma solução completa de segurança comunitária desenjada para capacitar cidadãos a monitorizar e reportar incidentes nos seus bairros. Com uma arquitetura robusta e foco na privacidade, o sistema opera com um backend local e uma aplicação Android nativa, utilizando mapas open-source para garantir que a informação crítica permanece acessível.
+
+---
+
+## 📑 Sumário
+1. [Visão Geral](#-visão-geral)
+2. [Funcionalidades Principais](#-funcionalidades-principais)
+3. [Arquitetura e Tecnologia](#-arquitetura-e-tecnologia)
+   - [Aplicação Android](#-aplicação-android-cliente)
+   - [Backend API](#️-backend-api-servidor)
+4. [Como Configurar e Executar](#-como-configurar-e-executar)
+5. [Testes e Qualidade](#-testes-e-qualidade)
+6. [Estrutura do Projeto](#-estrutura-do-projeto)
 
 ---
 
 ## 📱 Visão Geral
+A aplicação permite que vizinhos criem redes de confiança, reportem atividades suspeitas em tempo real e visualizem ocorrências num mapa interativo sem custos de licenciamento de APIs proprietárias.
 
-O **CrimeTracker** é uma solução completa de segurança comunitária projetada para capacitar cidadãos a monitorar e reportar incidentes em seus bairros. Com uma arquitetura robusta e foco na privacidade, o sistema opera com um backend local e um aplicativo Android nativo, garantindo que as informações críticas permaneçam sob o controle da comunidade.
+---
 
-### 🌟 Principais Funcionalidades
+## 🌟 Funcionalidades Principais
 
--   🚨 **Reporte de Crimes em Tempo Real**: Registre incidentes com precisão de localização GPS.
--   👥 **Grupos de Vigilância**: Crie e gerencie grupos de bairro para comunicação focada.
--   📰 **Feed Social Comunitário**: Compartilhe alertas, notícias e atualizações com seus vizinhos.
--   🗺️ **Mapeamento Interativo**: Visualize zonas de risco e ocorrências recentes em um mapa dinâmico.
--   🔒 **Privacidade em Primeiro Lugar**: Arquitetura descentralizada e local.
+### 🚨 Reporte de Crimes em Tempo Real
+Registo de incidentes (Assalto, Furto, Vandalismo, etc.) com geolocalização precisa.
+
+### 🗺️ Mapeamento Interativo (OpenStreetMap)
+Visualização dinâmica de ocorrências utilizando OSMDroid. Inclui modos padrão e satélite, clusterização de marcadores e filtros por tipo de crime.
+
+### 👥 Comunidades e Grupos
+Criação de grupos de bairro para comunicação focada. Permite entrar, sair e gerir membros.
+
+### 📰 Feed Social
+Partilha de alertas, notícias e atualizações com texto e imagens dentro dos grupos.
+
+### 👍 Sistema de Feedback
+Validação comunitária de denúncias com botões “Útil/Não Útil” e cálculo de reputação.
+
+### 🔒 Autenticação Segura
+Registo, login e recuperação de palavra-passe via e-mail.
 
 ---
 
 ## 🏗️ Arquitetura e Tecnologia
-
-O CrimeTracker foi construído seguindo as melhores práticas de engenharia de software para garantir escalabilidade, manutenibilidade e performance.
-
-### 📱 Android App (Cliente)
-
-Desenvolvido com **Kotlin** e **Jetpack Compose**, o aplicativo segue os princípios da **Clean Architecture** e padrão **MVVM (Model-View-ViewModel)**.
-
--   **UI Moderna**: Interface declarativa construída 100% em Jetpack Compose com Material Design 3.
--   **Injeção de Dependência**: Utilização do **Hilt** para gerenciamento robusto de dependências e testabilidade.
--   **Gerenciamento de Estado**: Uso de `StateFlow` e `Coroutines` para uma experiência reativa e fluida.
--   **Rede e Dados**:
-    -   **Retrofit**: Cliente HTTP tipado para comunicação com a API.
-    -   **Room**: Persistência de dados local para suporte offline (cache).
-    -   **DataStore**: Armazenamento seguro de preferências e tokens de sessão.
--   **Mapas**: Integração com Google Maps SDK para visualização geoespacial.
-
-### 🖥️ Backend API (Servidor)
-
-Uma API RESTful performante construída com **Node.js** e **Express**.
-
--   **Banco de Dados**: **SQLite** para uma solução leve, rápida e serverless, ideal para implantações locais.
--   **Segurança**:
-    -   **JWT (JSON Web Tokens)**: Autenticação stateless segura.
-    -   **Bcrypt**: Hashing robusto de senhas.
-    -   **Validação**: Middlewares de validação rigorosa de dados de entrada.
+O projeto segue uma abordagem Full Stack composta por Android + Node.js.
 
 ---
 
-## ✅ Garantia de Qualidade (QA)
+## 📱 Aplicação Android (Cliente)
+- Desenvolvida 100% em **Kotlin + Jetpack Compose**.  
+- **Clean Architecture + MVVM**  
+- UI com Material Design 3 e suporte Claro/Escuro.
 
-Como garantimos que o sistema funciona de forma confiável? Nossa estratégia de qualidade abrange múltiplas camadas:
+### Mapas
+- **OSMDroid (OpenStreetMap)** → solução gratuita, sem API key.
 
-### 1. Arquitetura Testável
-A adoção da **Clean Architecture** no Android não é apenas estética; ela desacopla a lógica de negócios da interface do usuário e frameworks. Isso significa que:
--   **Regras de Negócio** são isoladas e podem ser testadas independentemente.
--   **Repositórios** abstraem a fonte de dados, permitindo que testes usem dados falsos (mocks) sem necessidade de rede ou banco de dados real.
+### Injeção de Dependências
+- **Hilt**
 
-### 2. Tratamento de Erros Robusto
-O aplicativo é projetado para ser resiliente:
--   **Network Resilience**: O `NetworkModule` configura o Retrofit para lidar com timeouts e falhas de conexão graciosamente.
--   **Safe API Calls**: Wrappers de chamada de API capturam exceções e as convertem em estados de erro amigáveis para a UI (`Result.Success` / `Result.Error`), garantindo que o app nunca feche inesperadamente por falhas de rede.
+### Rede
+- **Retrofit + OkHttp**
 
-### 3. Tipagem e Segurança de Código
--   **Kotlin**: O uso de Kotlin garante *Null Safety*, eliminando uma classe inteira de erros comuns (NullPointerException).
--   **Validação no Backend**: O backend não confia cegamente no cliente. Todas as entradas são validadas e sanitizadas antes de tocar no banco de dados, prevenindo injeção de SQL e dados corrompidos.
+### Persistência
+- **Room** (cache offline)  
+- **DataStore** (tokens e preferências)
+
+### Multimédia
+- **Coil** e **Android Image Cropper**
 
 ---
 
-## 🚀 Como Executar
+## 🖥️ Backend API (Servidor)
+- Construído com **Node.js + Express**
+- Base de dados **SQLite (better-sqlite3)**
 
-### Pré-requisitos
--   **Node.js** (v18 ou superior)
--   **Android Studio** (Hedgehog ou superior)
--   **JDK 17**
+### Segurança
+- **JWT**  
+- **Bcrypt**  
+- **Express-Validator**
 
-### 1. Configurando o Backend
+### Uploads
+- **Multer** para imagens
+
+---
+
+## 🚀 Como Configurar e Executar
+
+### ✔ Pré‑requisitos
+- Node.js 18+
+- Android Studio Ladybug/Hedgehog+
+- JDK 17
+
+---
+
+## 🔧 1. Configuração do Backend
 
 ```bash
 cd backend
 npm install
 npm run dev
 ```
-*O servidor iniciará em `http://localhost:3000`.*
 
-### 2. Configurando o Android App
+Servidor em **http://localhost:3000**
 
-1.  Abra o projeto na pasta `android` com o Android Studio.
-2.  Aguarde a sincronização do Gradle.
-3.  Crie um arquivo `local.properties` na raiz do projeto android (se não existir) e adicione sua chave do Google Maps:
-    ```properties
-    MAPS_API_KEY=SUA_CHAVE_AQUI
-    ```
-4.  Execute o app em um emulador ou dispositivo físico.
-    *Nota: Se usar o emulador, o app já está configurado para conectar em `10.0.2.2:3000`.*
+---
+
+## 📲 2. Configuração da Aplicação Android
+- Projeto localizado na pasta `android/`
+- Não precisa de API key
+- No emulador, usa **http://10.0.2.2:3000**
+- Num dispositivo físico, alterar BASE_URL para o IP da máquina
+
+---
+
+## 🧪 Testes e Qualidade
+
+### Testes de Integração
+```bash
+# PowerShell
+.\scripts	est_all.ps1
+
+# Bash
+bash scripts/test_all.sh
+```
+
+### Testes Unitários
+```bash
+npm test
+```
 
 ---
 
 ## 📂 Estrutura do Projeto
-
 ```
 CrimeTracker/
-├── android/              # Código fonte do App Android
+├── android/
 │   ├── app/src/main/java/com/crimetracker/app/
-│   │   ├── data/         # Repositórios, Fontes de Dados, Modelos
-│   │   ├── di/           # Módulos Hilt (Injeção de Dependência)
-│   │   ├── domain/       # Casos de Uso (Regras de Negócio)
-│   │   ├── ui/           # Telas (Compose), ViewModels, Temas
-│   │   └── util/         # Utilitários e Helpers
-├── backend/              # Código fonte da API Node.js
-│   ├── database/         # Configuração SQLite
-│   ├── routes/           # Rotas da API
-│   ├── middleware/       # Autenticação e Validação
-│   └── server.js         # Ponto de entrada
-└── README.md             # Documentação do Projeto
+│   │   ├── data/
+│   │   ├── di/
+│   │   ├── ui/
+│   │   │   ├── map/
+│   │   │   └── ...
+│   │   └── util/
+│   └── build.gradle.kts
+│
+├── backend/
+│   ├── database/
+│   ├── routes/
+│   ├── services/
+│   ├── middleware/
+│   └── scripts/
 ```
