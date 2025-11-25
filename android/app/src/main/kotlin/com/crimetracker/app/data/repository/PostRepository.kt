@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 
 @Singleton
 class PostRepository @Inject constructor(
@@ -21,9 +22,29 @@ class PostRepository @Inject constructor(
     private val userPreferences: UserPreferences
 ) {
 
-    suspend fun createPost(groupId: String, conteudo: String): Resource<Post> {
+    suspend fun createPost(
+        groupId: String, 
+        conteudo: String, 
+        mediaFile: java.io.File? = null, 
+        isImportant: Boolean = false
+    ): Resource<Post> {
         return try {
-            val response = apiService.createPost(groupId, CreatePostRequest(conteudo))
+            val conteudoPart = okhttp3.RequestBody.create("text/plain".toMediaTypeOrNull(), conteudo)
+            val isImportantPart = okhttp3.RequestBody.create("text/plain".toMediaTypeOrNull(), if (isImportant) "true" else "false")
+            
+            val mediaPart = mediaFile?.let { file ->
+                val extension = file.extension.lowercase()
+                val mimeType = when {
+                    extension in listOf("jpg", "jpeg") -> "image/jpeg"
+                    extension == "png" -> "image/png"
+                    extension == "mp4" -> "video/mp4"
+                    else -> "application/octet-stream"
+                }
+                val requestBody = okhttp3.RequestBody.create(mimeType.toMediaTypeOrNull(), file)
+                okhttp3.MultipartBody.Part.createFormData("media", file.name, requestBody)
+            }
+
+            val response = apiService.createPost(groupId, conteudoPart, isImportantPart, mediaPart)
             
             if (response.isSuccessful && response.body() != null) {
                 val post = response.body()!!.data
@@ -33,9 +54,10 @@ class PostRepository @Inject constructor(
                 val errorMsg = when (response.code()) {
                     401 -> "Não autenticado. Faça login novamente."
                     403 -> "Você não é membro deste grupo"
-                    400 -> "Conteúdo inválido (máx. 1000 caracteres)"
+                    400 -> "Erro: Arquivo muito grande ou formato inválido."
+                    413 -> "Arquivo muito grande (Payload Too Large)"
                     404 -> "Grupo não encontrado"
-                    else -> "Erro ao criar post: ${response.code()}"
+                    else -> "Erro ao criar post: ${response.code()} ${response.message()}"
                 }
                 Resource.Error(errorMsg)
             }

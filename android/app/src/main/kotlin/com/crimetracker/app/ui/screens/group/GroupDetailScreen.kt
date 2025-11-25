@@ -16,13 +16,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.crimetracker.app.ui.components.PostCard
+import com.crimetracker.app.ui.components.PostFeedCard
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
     onBackClick: () -> Unit,
+    onNavigateToCreatePost: (String) -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -44,28 +45,16 @@ fun GroupDetailScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, "Voltar")
                     }
-                },
-                actions = {
-                    IconToggleButton(
-                        checked = uiState.isImportantFilterActive,
-                        onCheckedChange = { viewModel.toggleImportantFilter() }
-                    ) {
-                        Icon(
-                            imageVector = if (uiState.isImportantFilterActive) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = "Filtrar Importantes",
-                            tint = if (uiState.isImportantFilterActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
                 }
             )
         },
         floatingActionButton = {
             if (uiState.isMember) {
                 FloatingActionButton(
-                    onClick = { showCreatePostDialog = true },
+                    onClick = { onNavigateToCreatePost(uiState.group?.id ?: "") },
                     containerColor = MaterialTheme.colorScheme.primary
                 ) {
-                    Icon(Icons.Default.Edit, "Novo Post")
+                    Icon(Icons.Default.Add, "Novo Post")
                 }
             }
         },
@@ -73,6 +62,7 @@ fun GroupDetailScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             
+            // ... (Header Image - unchanged) ...
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -151,14 +141,35 @@ fun GroupDetailScreen(
                 }
             }
 
+            // Filters
+            if (uiState.isMember) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = !uiState.isImportantFilterActive,
+                        onClick = { if(uiState.isImportantFilterActive) viewModel.toggleImportantFilter() },
+                        label = { Text("Todos") }
+                    )
+                    FilterChip(
+                        selected = uiState.isImportantFilterActive,
+                        onClick = { if(!uiState.isImportantFilterActive) viewModel.toggleImportantFilter() },
+                        label = { Text("Importantes") },
+                        leadingIcon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) }
+                    )
+                }
+            }
+
             if (uiState.isLoading && uiState.posts.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     val postsToShow = uiState.filteredPosts
@@ -174,62 +185,21 @@ fun GroupDetailScreen(
                         }
                     } else {
                         items(postsToShow) { post ->
-                            PostCard(
+                            PostFeedCard(
                                 post = post,
-                                onLikeClick = { if(uiState.isMember) viewModel.likePost(post.id) },
-                                onDislikeClick = { if(uiState.isMember) viewModel.dislikePost(post.id) },
-                                onCommentClick = { },
-                                onShareClick = { }
+                                onLikeClick = { viewModel.likePost(post.id) },
+                                onDislikeClick = { viewModel.dislikePost(post.id) },
+                                onCommentClick = { /* TODO: Open comments */ },
+                                onShareClick = { /* TODO: Share */ },
+                                onDeleteClick = if (post.authorUsername == viewModel.currentUsername) { { viewModel.deletePost(post.id) } } else null
                             )
+                            Divider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         }
                     }
                 }
             }
         }
-
-        if (showCreatePostDialog) {
-            SimpleCreatePostDialog(
-                onDismiss = { showCreatePostDialog = false },
-                onPost = { content ->
-                    viewModel.createPost(content)
-                    showCreatePostDialog = false
-                }
-            )
-        }
     }
 }
 
-@Composable
-fun SimpleCreatePostDialog(
-    onDismiss: () -> Unit,
-    onPost: (String) -> Unit
-) {
-    var content by remember { mutableStateOf("") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Novo Post") },
-        text = {
-            OutlinedTextField(
-                value = content,
-                onValueChange = { content = it },
-                label = { Text("O que está a acontecer?") },
-                modifier = Modifier.fillMaxWidth().height(150.dp),
-                maxLines = 5
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = { onPost(content) },
-                enabled = content.isNotBlank()
-            ) {
-                Text("Publicar")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        }
-    )
-}
+// End of file

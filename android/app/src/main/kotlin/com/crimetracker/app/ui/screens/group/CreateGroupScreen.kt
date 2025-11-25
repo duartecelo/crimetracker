@@ -19,6 +19,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,11 +37,15 @@ fun CreateGroupScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Image picker
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedImageUri = uri
+    // Image picker & Cropper
+    val imageCropLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        if (result.isSuccessful) {
+            // Use getUriFilePath() or uriContent to get the result
+            selectedImageUri = result.uriContent
+        } else {
+            // Handle error if needed
+             val exception = result.error
+        }
     }
 
     // Success handling
@@ -84,7 +91,19 @@ fun CreateGroupScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(150.dp)
-                    .clickable { launcher.launch("image/*") }
+                    .clickable {
+                        val options = CropImageContractOptions(
+                            uri = null,
+                            cropImageOptions = CropImageOptions(
+                                imageSourceIncludeGallery = true,
+                                imageSourceIncludeCamera = true,
+                                fixAspectRatio = true,
+                                aspectRatioX = 5, // 5:2 ratio (e.g. 375dp width / 150dp height)
+                                aspectRatioY = 2
+                            )
+                        )
+                        imageCropLauncher.launch(options)
+                    }
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     if (selectedImageUri != null) {

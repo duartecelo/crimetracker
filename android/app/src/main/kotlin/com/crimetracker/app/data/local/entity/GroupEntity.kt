@@ -9,6 +9,7 @@ data class GroupEntity(
     val id: String,
     val nome: String,
     val descricao: String?,
+    val coverUrl: String?,
     val criadorUsername: String?,
     val memberCount: Int,
     val createdAt: String,

@@ -194,8 +194,10 @@ fun NavGraph(
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
             CreatePostScreen(
-                groupId = groupId,
-                onNavigateBack = {
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onPostCreated = {
                     navController.popBackStack()
                 }
             )
@@ -258,6 +260,9 @@ fun NavGraph(
             com.crimetracker.app.ui.screens.group.GroupDetailScreen(
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onNavigateToCreatePost = { groupId ->
+                    navController.navigate(Screen.CreatePost.createRoute(groupId))
                 }
             )
         }
