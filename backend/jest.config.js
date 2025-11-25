@@ -10,5 +10,6 @@ module.exports = {
   testMatch: [
     '**/test/**/*.test.js'
   ],
+  coverageReporters: ['lcov', 'text'],
   verbose: true
 };
